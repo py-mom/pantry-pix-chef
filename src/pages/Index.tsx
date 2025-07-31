@@ -33,31 +33,60 @@ const Index = () => {
   };
 
   const handleNewInventory = (items: string[]) => {
+    // Get the previous inventory to compare
+    const previousInventory = JSON.parse(localStorage.getItem("pantry-previous-inventory") || "[]");
+    
+    // Save current inventory as the new inventory
     setInventoryItems(items);
     saveToStorage("pantry-inventory", items);
     
-    // Get last week's shopping list to compare
-    const lastShoppingList = JSON.parse(localStorage.getItem("pantry-last-shopping-list") || "[]");
+    // Save current inventory as previous for next comparison
+    saveToStorage("pantry-previous-inventory", items);
     
-    // Find items that were on shopping list but not found in current inventory
-    const missingItems = lastShoppingList.filter((item: string) => 
-      !items.some(inventoryItem => 
-        inventoryItem.toLowerCase().includes(item.toLowerCase()) ||
-        item.toLowerCase().includes(inventoryItem.toLowerCase())
-      )
-    );
-    
-    if (missingItems.length > 0) {
-      setShoppingList(missingItems);
-      saveToStorage("pantry-shopping-list", missingItems);
-      toast({
-        title: "Smart List Created!",
-        description: `Found ${missingItems.length} items you might need to buy.`,
-      });
+    if (previousInventory.length > 0) {
+      // Find items that were in previous inventory but are missing from current inventory
+      const missingItems = previousInventory.filter((prevItem: string) => 
+        !items.some(currentItem => 
+          currentItem.toLowerCase().includes(prevItem.toLowerCase()) ||
+          prevItem.toLowerCase().includes(currentItem.toLowerCase())
+        )
+      );
+      
+      if (missingItems.length > 0) {
+        // Add missing items to shopping list (avoid duplicates)
+        const currentShoppingList = [...shoppingList];
+        const newItemsToAdd = missingItems.filter((item: string) => 
+          !currentShoppingList.some(listItem => 
+            listItem.toLowerCase().includes(item.toLowerCase()) ||
+            item.toLowerCase().includes(listItem.toLowerCase())
+          )
+        );
+        
+        if (newItemsToAdd.length > 0) {
+          const updatedShoppingList = [...currentShoppingList, ...newItemsToAdd];
+          setShoppingList(updatedShoppingList);
+          saveToStorage("pantry-shopping-list", updatedShoppingList);
+          
+          toast({
+            title: "Missing Items Detected!",
+            description: `Found ${newItemsToAdd.length} items from your previous inventory that are now missing.`,
+          });
+        } else {
+          toast({
+            title: "Inventory Updated!",
+            description: "All missing items are already on your shopping list.",
+          });
+        }
+      } else {
+        toast({
+          title: "Inventory Updated!",
+          description: "No missing items detected. Your pantry looks well-stocked!",
+        });
+      }
     } else {
       toast({
-        title: "Inventory Updated!",
-        description: "Your pantry is well-stocked!",
+        title: "First Inventory Scan!",
+        description: "Take another photo later to detect missing items automatically.",
       });
     }
     
