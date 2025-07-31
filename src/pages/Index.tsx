@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Camera, List, ChefHat, Settings } from "lucide-react";
+import { Camera, List, ChefHat, Settings, LogOut, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,12 +9,23 @@ import InventoryList from "@/components/InventoryList";
 import RecipeRecommendations from "@/components/RecipeRecommendations";
 import CuisinePreferences from "@/components/CuisinePreferences";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("camera");
   const [inventoryItems, setInventoryItems] = useState<string[]>([]);
   const [shoppingList, setShoppingList] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     // Load data from localStorage on mount
@@ -113,17 +125,66 @@ const Index = () => {
     });
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been signed out successfully.",
+    });
+    navigate("/auth");
+  };
+
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="text-lg">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-gradient-fresh text-primary-foreground shadow-glow">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <ChefHat className="h-8 w-8" />
-            <div>
-              <h1 className="text-2xl font-bold">Smart Pantry</h1>
-              <p className="text-primary-foreground/80">AI-powered inventory & recipes</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <ChefHat className="h-8 w-8" />
+              <div>
+                <h1 className="text-2xl font-bold">Smart Pantry</h1>
+                <p className="text-primary-foreground/80">AI-powered inventory & recipes</p>
+              </div>
             </div>
+            
+            {/* User Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/10">
+                  <User className="h-4 w-4 mr-2" />
+                  {user.email?.split('@')[0] || 'User'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem disabled className="opacity-60">
+                  <User className="h-4 w-4 mr-2" />
+                  {user.email}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
