@@ -14,6 +14,9 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   // AI analysis function using Hugging Face Transformers
   const analyzeImage = async (imageData: string): Promise<string[]> => {
@@ -34,7 +37,7 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
       
       // Use a simple approach: analyze the image using a food detection API
       // For now, we'll use a mock but structure it for real implementation
-      const detectedItems = await detectFoodItems(img, imageData);
+      const detectedItems = await detectFoodItemsFromDataUrl(imageData);
       
       setIsAnalyzing(false);
       return detectedItems;
@@ -89,61 +92,59 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
   };
 
   const startCamera = async () => {
-    setIsCapturing(true);
     try {
+      setIsCameraOpen(true);
+      setIsCapturing(false);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
-      
-      // Create video element to capture from camera
-      const video = document.createElement("video");
-      video.setAttribute("playsinline", "true"); // iOS Safari
-      video.muted = true;
-      (video as HTMLVideoElement).srcObject = stream;
-      
-      const playPromise = (video as HTMLVideoElement).play();
-      if (playPromise && typeof (playPromise as any).then === "function") {
-        await (playPromise as Promise<void>).catch(() => {});
-      }
-      
-      const capture = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const vw = (video as HTMLVideoElement).videoWidth || 1280;
-        const vh = (video as HTMLVideoElement).videoHeight || 720;
-        
-        canvas.width = vw;
-        canvas.height = vh;
-        
-        ctx?.drawImage(video as HTMLVideoElement, 0, 0, vw, vh);
-        const imageData = canvas.toDataURL("image/jpeg", 0.9);
-        
-        // Stop camera
-        try {
-          stream.getTracks().forEach((track) => track.stop());
-        } catch {}
-        (video as HTMLVideoElement).srcObject = null as any;
-        
-        setIsCapturing(false);
-        
-        handleImageCapture(imageData);
-      };
-      
-      if ((video as HTMLVideoElement).readyState >= 2) {
-        setTimeout(capture, 350);
-      } else {
-        (video as HTMLVideoElement).oncanplay = () => setTimeout(capture, 350);
-        (video as HTMLVideoElement).onloadeddata = () => setTimeout(capture, 350);
+      streamRef.current = stream;
+      const video = videoRef.current;
+      if (video) {
+        // @ts-ignore
+        video.srcObject = stream;
+        video.setAttribute("playsinline", "true");
+        video.muted = true;
+        await video.play().catch(() => {});
       }
     } catch (error) {
-      setIsCapturing(false);
+      setIsCameraOpen(false);
       toast({
         title: "Camera Access Failed",
         description: "Could not access camera. Please try uploading an image instead.",
         variant: "destructive",
       });
     }
+  };
+
+  const stopCamera = () => {
+    try {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    } catch {}
+    if (videoRef.current) {
+      // @ts-ignore
+      videoRef.current.srcObject = null;
+    }
+    streamRef.current = null;
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    setIsCapturing(true);
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    const vw = video.videoWidth || 1280;
+    const vh = video.videoHeight || 720;
+    canvas.width = vw;
+    canvas.height = vh;
+    const ctx = canvas.getContext("2d");
+    ctx?.drawImage(video, 0, 0, vw, vh);
+    const imageData = canvas.toDataURL("image/jpeg", 0.9);
+    stopCamera();
+    setIsCameraOpen(false);
+    setIsCapturing(false);
+    handleImageCapture(imageData);
   };
 
   return (
@@ -181,6 +182,41 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
         onChange={handleFileUpload}
         className="hidden"
       />
+
+      {isCameraOpen && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <h3 className="font-medium">Camera Preview</h3>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full max-w-md mx-auto rounded-lg shadow-soft bg-muted"
+              />
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  onClick={capturePhoto}
+                  variant="fresh"
+                  size="lg"
+                  disabled={isCapturing || isAnalyzing}
+                >
+                  <Camera className="h-6 w-6 mr-2" />
+                  {isCapturing ? "Capturing..." : "Capture"}
+                </Button>
+                <Button
+                  onClick={() => { stopCamera(); setIsCameraOpen(false); }}
+                  variant="secondary"
+                  size="lg"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Analysis Status */}
       {isAnalyzing && (
