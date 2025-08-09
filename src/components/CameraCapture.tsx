@@ -3,7 +3,7 @@ import { Camera, Upload, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-
+import { supabase } from "@/integrations/supabase/client";
 interface CameraCaptureProps {
   onItemsDetected: (items: string[]) => void;
 }
@@ -34,7 +34,7 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
       
       // Use a simple approach: analyze the image using a food detection API
       // For now, we'll use a mock but structure it for real implementation
-      const detectedItems = await detectFoodItems(img);
+      const detectedItems = await detectFoodItems(img, imageData);
       
       setIsAnalyzing(false);
       return detectedItems;
@@ -45,18 +45,30 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
     }
   };
 
-  // Food detection function (can be enhanced with real AI services)
-  const detectFoodItems = async (imageElement: HTMLImageElement): Promise<string[]> => {
-    // This is a simplified detection - in production, use services like:
-    // - Hugging Face Vision Transformers
-    // - Google Vision API
-    // - Custom food detection model
-    
-    // For demo purposes, return empty array to show no detection
-    // User will need to add items manually until real AI is integrated
-    return [];
+  // Food detection function via Supabase Edge Function (OpenAI Vision)
+  const detectFoodItems = async (_imageElement: HTMLImageElement, dataUrl?: string): Promise<string[]> => {
+    try {
+      if (!dataUrl) return [];
+      const { data, error } = await supabase.functions.invoke("detect-items", {
+        body: { image: dataUrl },
+      });
+      if (error) {
+        console.error("detect-items function error:", error);
+        return [];
+      }
+      const items = (data?.items || data) as string[] | undefined;
+      if (Array.isArray(items)) {
+        return items
+          .filter((s) => typeof s === "string")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+      return [];
+    } catch (e) {
+      console.error("detectFoodItems failed:", e);
+      return [];
+    }
   };
-
   const handleImageCapture = async (imageData: string) => {
     setCapturedImage(imageData);
     
@@ -92,34 +104,51 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
   const startCamera = async () => {
     setIsCapturing(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } // Use back camera on mobile
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
       });
       
       // Create video element to capture from camera
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.play();
+      const video = document.createElement("video");
+      video.setAttribute("playsinline", "true"); // iOS Safari
+      video.muted = true;
+      (video as HTMLVideoElement).srcObject = stream;
       
-      video.onloadedmetadata = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+      const playPromise = (video as HTMLVideoElement).play();
+      if (playPromise && typeof (playPromise as any).then === "function") {
+        await (playPromise as Promise<void>).catch(() => {});
+      }
+      
+      const capture = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const vw = (video as HTMLVideoElement).videoWidth || 1280;
+        const vh = (video as HTMLVideoElement).videoHeight || 720;
         
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = vw;
+        canvas.height = vh;
         
-        setTimeout(() => {
-          ctx?.drawImage(video, 0, 0);
-          const imageData = canvas.toDataURL('image/jpeg');
-          
-          // Stop camera
-          stream.getTracks().forEach(track => track.stop());
-          setIsCapturing(false);
-          
-          handleImageCapture(imageData);
-        }, 1000); // Give user 1 second to position camera
+        ctx?.drawImage(video as HTMLVideoElement, 0, 0, vw, vh);
+        const imageData = canvas.toDataURL("image/jpeg", 0.9);
+        
+        // Stop camera
+        try {
+          stream.getTracks().forEach((track) => track.stop());
+        } catch {}
+        (video as HTMLVideoElement).srcObject = null as any;
+        
+        setIsCapturing(false);
+        
+        handleImageCapture(imageData);
       };
       
+      if ((video as HTMLVideoElement).readyState >= 2) {
+        setTimeout(capture, 350);
+      } else {
+        (video as HTMLVideoElement).oncanplay = () => setTimeout(capture, 350);
+        (video as HTMLVideoElement).onloadeddata = () => setTimeout(capture, 350);
+      }
     } catch (error) {
       setIsCapturing(false);
       toast({
@@ -161,6 +190,7 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        capture="environment"
         onChange={handleFileUpload}
         className="hidden"
       />
@@ -186,7 +216,8 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
               <h3 className="font-medium">Last Captured Image</h3>
               <img
                 src={capturedImage}
-                alt="Captured pantry"
+                alt="Captured pantry photo for AI item detection"
+                loading="lazy"
                 className="w-full max-w-md mx-auto rounded-lg shadow-soft"
               />
             </div>
