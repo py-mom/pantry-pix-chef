@@ -3,7 +3,7 @@ import { Camera, Upload, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { detectFoodItemsFromDataUrl } from "@/lib/vision/detectFood";
+import { supabase } from "@/integrations/supabase/client";
 interface CameraCaptureProps {
   onItemsDetected: (items: string[]) => void;
 }
@@ -37,7 +37,7 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
       
       // Use a simple approach: analyze the image using a food detection API
       // For now, we'll use a mock but structure it for real implementation
-      const detectedItems = await detectFoodItemsFromDataUrl(imageData);
+      const detectedItems = await detectFoodItems(img, imageData);
       
       setIsAnalyzing(false);
       return detectedItems;
@@ -48,14 +48,27 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
     }
   };
 
-  // Food detection function using in-browser open-source model
+  // Food detection via Supabase Edge Function (Claude)
   const detectFoodItems = async (_imageElement: HTMLImageElement, dataUrl?: string): Promise<string[]> => {
     try {
       if (!dataUrl) return [];
-      const items = await detectFoodItemsFromDataUrl(dataUrl);
-      return items;
+      const { data, error } = await supabase.functions.invoke("detect-items", {
+        body: { image: dataUrl },
+      });
+      if (error) {
+        console.error("detect-items error:", error);
+        return [];
+      }
+      const items = (data?.items || data) as string[] | undefined;
+      if (Array.isArray(items)) {
+        return items
+          .filter((s) => typeof s === "string")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+      return [];
     } catch (e) {
-      console.error("Local detectFoodItems failed:", e);
+      console.error("detectFoodItems failed:", e);
       return [];
     }
   };
