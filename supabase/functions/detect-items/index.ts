@@ -53,7 +53,7 @@ serve(async (req) => {
             {
               type: "text",
               text:
-                "Detect visible pantry/grocery items in the photo. Respond ONLY with valid JSON of the form {\"items\":[\"item1\",\"item2\",...]}. Use common grocery names, avoid brand names, be concise.",
+                "Detect all visible grocery/pantry AND common household items in the photo (e.g., cleaning supplies, toiletries, paper goods, candles, batteries, light bulbs, kitchen supplies). Respond ONLY with valid JSON of the form {\"items\":[\"item1\",\"item2\",...]}. Use concise, generic item names (avoid brand names), normalize to everyday terms, and exclude people, pets, vehicles, and unrelated scenery.",
             },
           ],
         },
