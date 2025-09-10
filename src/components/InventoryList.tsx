@@ -15,6 +15,7 @@ interface InventoryListProps {
   onMarkAsBought: (index: number) => void;
   onAddWeeklyStaple: (item: string) => void;
   onRemoveWeeklyStaple: (item: string) => void;
+  onAddAllStaplesToShoppingList: () => void;
 }
 
 const InventoryList = ({
@@ -26,6 +27,7 @@ const InventoryList = ({
   onMarkAsBought,
   onAddWeeklyStaple,
   onRemoveWeeklyStaple,
+  onAddAllStaplesToShoppingList,
 }: InventoryListProps) => {
   const [newItem, setNewItem] = useState("");
   const [newStaple, setNewStaple] = useState("");
@@ -136,7 +138,18 @@ const InventoryList = ({
               {/* Current weekly staples */}
               {weeklyStaples.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-sm mb-3">Your Weekly Staples:</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-sm">Your Weekly Staples:</h4>
+                    <Button
+                      onClick={onAddAllStaplesToShoppingList}
+                      size="sm"
+                      className="h-8 text-xs"
+                      variant="default"
+                    >
+                      <ShoppingCart className="h-3 w-3 mr-1" />
+                      Add All to Shopping List
+                    </Button>
+                  </div>
                   <div className="space-y-2">
                     {weeklyStaples.map((staple, index) => (
                       <div
@@ -144,24 +157,14 @@ const InventoryList = ({
                         className="flex items-center justify-between p-2 bg-accent/10 rounded-lg"
                       >
                         <span className="text-sm font-medium">{staple}</span>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => onAddToShoppingList(staple)}
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs hover:bg-primary hover:text-primary-foreground"
-                          >
-                            <ShoppingCart className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            onClick={() => onRemoveWeeklyStaple(staple)}
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        <Button
+                          onClick={() => onRemoveWeeklyStaple(staple)}
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     ))}
                   </div>

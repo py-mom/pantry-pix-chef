@@ -152,6 +152,32 @@ const Index = () => {
     });
   };
 
+  const addAllStaplesToShoppingList = () => {
+    if (weeklyStaples.length === 0) return;
+    
+    const itemsToAdd = weeklyStaples.filter(staple => 
+      !shoppingList.some(listItem => 
+        listItem.toLowerCase().includes(staple.toLowerCase()) ||
+        staple.toLowerCase().includes(listItem.toLowerCase())
+      )
+    );
+    
+    if (itemsToAdd.length > 0) {
+      const newShoppingList = [...shoppingList, ...itemsToAdd];
+      setShoppingList(newShoppingList);
+      saveToStorage("pantry-shopping-list", newShoppingList);
+      toast({
+        title: "Weekly Staples Added!",
+        description: `Added ${itemsToAdd.length} staples to your shopping list.`,
+      });
+    } else {
+      toast({
+        title: "All Staples Already Listed",
+        description: "All your weekly staples are already on the shopping list.",
+      });
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     toast({
@@ -275,6 +301,7 @@ const Index = () => {
               onMarkAsBought={markAsBought}
               onAddWeeklyStaple={addWeeklyStaple}
               onRemoveWeeklyStaple={removeWeeklyStaple}
+              onAddAllStaplesToShoppingList={addAllStaplesToShoppingList}
             />
           </TabsContent>
 
