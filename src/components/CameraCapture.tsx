@@ -3,7 +3,7 @@ import { Camera, Upload, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { detectFoodItemsFromDataUrl } from "@/lib/vision/detectFood";
 interface CameraCaptureProps {
   onItemsDetected: (items: string[]) => void;
 }
@@ -18,26 +18,14 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
   const streamRef = useRef<MediaStream | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
-  // AI analysis function using Hugging Face Transformers
+  // AI analysis function using Hugging Face Transformers (on-device)
   const analyzeImage = async (imageData: string): Promise<string[]> => {
     setIsAnalyzing(true);
     
     try {
-      // Convert base64 to blob for analysis
-      const response = await fetch(imageData);
-      const blob = await response.blob();
-      
-      // Create image element for processing
-      const img = new Image();
-      img.src = imageData;
-      
-      await new Promise((resolve) => {
-        img.onload = resolve;
-      });
-      
-      // Use a simple approach: analyze the image using a food detection API
-      // For now, we'll use a mock but structure it for real implementation
-      const detectedItems = await detectFoodItems(img, imageData);
+      console.log('Starting on-device image analysis...');
+      const detectedItems = await detectFoodItemsFromDataUrl(imageData);
+      console.log('Detected items:', detectedItems);
       
       setIsAnalyzing(false);
       return detectedItems;
@@ -45,31 +33,6 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
       console.error('Image analysis failed:', error);
       setIsAnalyzing(false);
       throw error;
-    }
-  };
-
-  // Food detection via Supabase Edge Function (Claude)
-  const detectFoodItems = async (_imageElement: HTMLImageElement, dataUrl?: string): Promise<string[]> => {
-    try {
-      if (!dataUrl) return [];
-      const { data, error } = await supabase.functions.invoke("detect-items", {
-        body: { image: dataUrl },
-      });
-      if (error) {
-        console.error("detect-items error:", error);
-        return [];
-      }
-      const items = (data?.items || data) as string[] | undefined;
-      if (Array.isArray(items)) {
-        return items
-          .filter((s) => typeof s === "string")
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
-      return [];
-    } catch (e) {
-      console.error("detectFoodItems failed:", e);
-      return [];
     }
   };
   const handleImageCapture = async (imageData: string) => {
