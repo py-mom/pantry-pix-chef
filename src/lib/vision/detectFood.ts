@@ -142,11 +142,21 @@ export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<strin
     });
 
     // outputs is an array of {label, score}, already filtered to our labels
-    const filtered = (Array.isArray(outputs) ? outputs : [])
+    const allResults = (Array.isArray(outputs) ? outputs : [])
       .filter((r: any) => typeof r?.label === "string" && typeof r?.score === "number")
-      .filter((r: any) => r.score >= 0.15) // Lower threshold to catch more specific items
-      .sort((a: any, b: any) => b.score - a.score)
+      .sort((a: any, b: any) => b.score - a.score);
+
+    // Try with lowered threshold first
+    let filtered = allResults
+      .filter((r: any) => r.score >= 0.05) // Much lower threshold
       .map((r: any) => normalize(r.label));
+
+    // If still no results, take top 3 results regardless of score
+    if (filtered.length === 0 && allResults.length > 0) {
+      filtered = allResults
+        .slice(0, 3)
+        .map((r: any) => normalize(r.label));
+    }
 
     const uniq = Array.from(new Set(filtered));
     if (uniq.length) return uniq.slice(0, 10);
