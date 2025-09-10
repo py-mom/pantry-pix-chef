@@ -1,17 +1,19 @@
 import { useState, useRef } from "react";
-import { Camera, Upload, Scan } from "lucide-react";
+import { Camera, Upload, Scan, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { detectFoodItemsFromDataUrl } from "@/lib/vision/detectFood";
 interface CameraCaptureProps {
   onItemsDetected: (items: string[]) => void;
+  onAddToShoppingList: (item: string) => void;
 }
 
-const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
+const CameraCapture = ({ onItemsDetected, onAddToShoppingList }: CameraCaptureProps) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [detectedItems, setDetectedItems] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -39,12 +41,13 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
     setCapturedImage(imageData);
     
     try {
-      const detectedItems = await analyzeImage(imageData);
-      onItemsDetected(detectedItems);
+      const items = await analyzeImage(imageData);
+      setDetectedItems(items);
+      onItemsDetected(items);
       
       toast({
         title: "Analysis Complete!",
-        description: `Detected ${detectedItems.length} items in your photo.`,
+        description: `Detected ${items.length} items in your photo.`,
       });
     } catch (error) {
       toast({
@@ -202,6 +205,37 @@ const CameraCapture = ({ onItemsDetected }: CameraCaptureProps) => {
               <Scan className="h-8 w-8 text-primary mx-auto animate-pulse" />
               <p className="text-lg font-medium">Analyzing your photo...</p>
               <p className="text-muted-foreground">AI is detecting items in your pantry</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Detected Items */}
+      {detectedItems.length > 0 && !isAnalyzing && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <h3 className="font-medium">Detected Items</h3>
+              <div className="space-y-2">
+                {detectedItems.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-muted">
+                    <span className="text-sm font-medium">{item}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        onAddToShoppingList(item);
+                        toast({
+                          title: "Added to Shopping List",
+                          description: `${item} has been added to your shopping list.`,
+                        });
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

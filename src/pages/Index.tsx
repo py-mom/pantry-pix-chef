@@ -229,7 +229,10 @@ const Index = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <CameraCapture onItemsDetected={handleNewInventory} />
+                <CameraCapture 
+                  onItemsDetected={handleNewInventory}
+                  onAddToShoppingList={addToShoppingList} 
+                />
               </CardContent>
             </Card>
           </TabsContent>
