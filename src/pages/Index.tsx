@@ -16,6 +16,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("camera");
   const [inventoryItems, setInventoryItems] = useState<string[]>([]);
   const [shoppingList, setShoppingList] = useState<string[]>([]);
+  const [weeklyStaples, setWeeklyStaples] = useState<string[]>([]);
   const { toast } = useToast();
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -31,12 +32,16 @@ const Index = () => {
     // Load data from localStorage on mount
     const savedInventory = localStorage.getItem("pantry-inventory");
     const savedShoppingList = localStorage.getItem("pantry-shopping-list");
+    const savedWeeklyStaples = localStorage.getItem("pantry-weekly-staples");
     
     if (savedInventory) {
       setInventoryItems(JSON.parse(savedInventory));
     }
     if (savedShoppingList) {
       setShoppingList(JSON.parse(savedShoppingList));
+    }
+    if (savedWeeklyStaples) {
+      setWeeklyStaples(JSON.parse(savedWeeklyStaples));
     }
   }, []);
 
@@ -122,6 +127,28 @@ const Index = () => {
     toast({
       title: "Item purchased!",
       description: "Item removed from shopping list.",
+    });
+  };
+
+  const addWeeklyStaple = (item: string) => {
+    if (!weeklyStaples.includes(item)) {
+      const newStaples = [...weeklyStaples, item];
+      setWeeklyStaples(newStaples);
+      saveToStorage("pantry-weekly-staples", newStaples);
+      toast({
+        title: "Staple Added!",
+        description: `${item} is now a weekly staple.`,
+      });
+    }
+  };
+
+  const removeWeeklyStaple = (item: string) => {
+    const newStaples = weeklyStaples.filter(staple => staple !== item);
+    setWeeklyStaples(newStaples);
+    saveToStorage("pantry-weekly-staples", newStaples);
+    toast({
+      title: "Staple Removed",
+      description: `${item} is no longer a weekly staple.`,
     });
   };
 
@@ -242,9 +269,12 @@ const Index = () => {
             <InventoryList
               inventoryItems={inventoryItems}
               shoppingList={shoppingList}
+              weeklyStaples={weeklyStaples}
               onAddToShoppingList={addToShoppingList}
               onRemoveFromShoppingList={removeFromShoppingList}
               onMarkAsBought={markAsBought}
+              onAddWeeklyStaple={addWeeklyStaple}
+              onRemoveWeeklyStaple={removeWeeklyStaple}
             />
           </TabsContent>
 

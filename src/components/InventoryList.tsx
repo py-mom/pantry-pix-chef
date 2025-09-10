@@ -1,26 +1,42 @@
 import { useState } from "react";
-import { Plus, Trash2, Check, ShoppingCart, Package } from "lucide-react";
+import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface InventoryListProps {
   inventoryItems: string[];
   shoppingList: string[];
+  weeklyStaples: string[];
   onAddToShoppingList: (item: string) => void;
   onRemoveFromShoppingList: (index: number) => void;
   onMarkAsBought: (index: number) => void;
+  onAddWeeklyStaple: (item: string) => void;
+  onRemoveWeeklyStaple: (item: string) => void;
 }
 
 const InventoryList = ({
   inventoryItems,
   shoppingList,
+  weeklyStaples,
   onAddToShoppingList,
   onRemoveFromShoppingList,
   onMarkAsBought,
+  onAddWeeklyStaple,
+  onRemoveWeeklyStaple,
 }: InventoryListProps) => {
   const [newItem, setNewItem] = useState("");
+  const [newStaple, setNewStaple] = useState("");
+  const [staplesOpen, setStaplesOpen] = useState(false);
+
+  // Common weekly staples that users can quickly add
+  const commonStaples = [
+    "milk", "bread", "eggs", "bananas", "chicken", "rice", "pasta", "onions",
+    "tomatoes", "cheese", "yogurt", "butter", "olive oil", "salt", "pepper",
+    "garlic", "carrots", "apples", "oats", "peanut butter"
+  ];
 
   const handleAddItem = () => {
     if (newItem.trim()) {
@@ -35,8 +51,129 @@ const InventoryList = ({
     }
   };
 
+  const handleAddStaple = () => {
+    if (newStaple.trim() && !weeklyStaples.includes(newStaple.trim())) {
+      onAddWeeklyStaple(newStaple.trim());
+      setNewStaple("");
+    }
+  };
+
+  const handleStapleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAddStaple();
+    }
+  };
+
+  const addCommonStaple = (staple: string) => {
+    if (!weeklyStaples.includes(staple)) {
+      onAddWeeklyStaple(staple);
+    }
+  };
+
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="space-y-6">
+      {/* Weekly Staples Section */}
+      <Card className="shadow-soft">
+        <Collapsible open={staplesOpen} onOpenChange={setStaplesOpen}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-accent" />
+                Weekly Staples
+                {weeklyStaples.length > 0 && (
+                  <Badge variant="outline" className="ml-auto mr-2">
+                    {weeklyStaples.length} items
+                  </Badge>
+                )}
+                {staplesOpen ? (
+                  <ChevronDown className="h-4 w-4 ml-auto" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 ml-auto" />
+                )}
+              </CardTitle>
+              <CardDescription>
+                Items that should always be on your shopping list
+              </CardDescription>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              {/* Add custom staple */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add custom weekly staple..."
+                  value={newStaple}
+                  onChange={(e) => setNewStaple(e.target.value)}
+                  onKeyPress={handleStapleKeyPress}
+                  className="flex-1"
+                />
+                <Button onClick={handleAddStaple} size="icon" variant="outline">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Common staples - quick add */}
+              <div>
+                <h4 className="font-medium text-sm mb-3">Quick Add Common Staples:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {commonStaples
+                    .filter(staple => !weeklyStaples.includes(staple))
+                    .map((staple) => (
+                    <Button
+                      key={staple}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addCommonStaple(staple)}
+                      className="h-8 text-xs"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      {staple}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Current weekly staples */}
+              {weeklyStaples.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm mb-3">Your Weekly Staples:</h4>
+                  <div className="space-y-2">
+                    {weeklyStaples.map((staple, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 bg-accent/10 rounded-lg"
+                      >
+                        <span className="text-sm font-medium">{staple}</span>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => onAddToShoppingList(staple)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs hover:bg-primary hover:text-primary-foreground"
+                          >
+                            <ShoppingCart className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            onClick={() => onRemoveWeeklyStaple(staple)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
+
+      {/* Main inventory grid */}
+      <div className="grid gap-6 md:grid-cols-2">
       {/* Current Inventory */}
       <Card className="shadow-soft">
         <CardHeader>
@@ -145,6 +282,7 @@ const InventoryList = ({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
