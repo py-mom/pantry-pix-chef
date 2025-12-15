@@ -1,18 +1,22 @@
 import { useState } from "react";
-import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight, Minus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { InventoryItem, ShoppingItem } from "@/types/inventory";
 
 interface InventoryListProps {
-  inventoryItems: string[];
-  shoppingList: string[];
+  inventoryItems: InventoryItem[];
+  shoppingList: ShoppingItem[];
   weeklyStaples: string[];
-  onAddToShoppingList: (item: string) => void;
+  onAddToShoppingList: (item: string, quantity?: number) => void;
   onRemoveFromShoppingList: (index: number) => void;
+  onUpdateShoppingItem: (index: number, updates: Partial<ShoppingItem>) => void;
   onRemoveFromInventory: (index: number) => void;
+  onAddToInventory: (item: string, quantity?: number) => void;
+  onUpdateInventoryItem: (index: number, updates: Partial<InventoryItem>) => void;
   onMarkAsBought: (index: number) => void;
   onAddWeeklyStaple: (item: string) => void;
   onRemoveWeeklyStaple: (item: string) => void;
@@ -25,15 +29,21 @@ const InventoryList = ({
   weeklyStaples,
   onAddToShoppingList,
   onRemoveFromShoppingList,
+  onUpdateShoppingItem,
   onRemoveFromInventory,
+  onAddToInventory,
+  onUpdateInventoryItem,
   onMarkAsBought,
   onAddWeeklyStaple,
   onRemoveWeeklyStaple,
   onAddAllStaplesToShoppingList,
 }: InventoryListProps) => {
   const [newItem, setNewItem] = useState("");
+  const [newInventoryItem, setNewInventoryItem] = useState("");
   const [newStaple, setNewStaple] = useState("");
   const [staplesOpen, setStaplesOpen] = useState(false);
+  const [editingShoppingIndex, setEditingShoppingIndex] = useState<number | null>(null);
+  const [editingShoppingValue, setEditingShoppingValue] = useState("");
 
   // Common weekly staples that users can quickly add
   const commonStaples = [
@@ -49,9 +59,22 @@ const InventoryList = ({
     }
   };
 
+  const handleAddInventoryItem = () => {
+    if (newInventoryItem.trim()) {
+      onAddToInventory(newInventoryItem.trim());
+      setNewInventoryItem("");
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleAddItem();
+    }
+  };
+
+  const handleInventoryKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAddInventoryItem();
     }
   };
 
@@ -71,6 +94,28 @@ const InventoryList = ({
   const addCommonStaple = (staple: string) => {
     if (!weeklyStaples.includes(staple)) {
       onAddWeeklyStaple(staple);
+    }
+  };
+
+  const startEditingShopping = (index: number, currentName: string) => {
+    setEditingShoppingIndex(index);
+    setEditingShoppingValue(currentName);
+  };
+
+  const saveShoppingEdit = () => {
+    if (editingShoppingIndex !== null && editingShoppingValue.trim()) {
+      onUpdateShoppingItem(editingShoppingIndex, { name: editingShoppingValue.trim() });
+    }
+    setEditingShoppingIndex(null);
+    setEditingShoppingValue("");
+  };
+
+  const handleEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveShoppingEdit();
+    } else if (e.key === 'Escape') {
+      setEditingShoppingIndex(null);
+      setEditingShoppingValue("");
     }
   };
 
@@ -187,25 +232,62 @@ const InventoryList = ({
             Current Inventory
           </CardTitle>
           <CardDescription>
-            Items detected in your latest photo scan
+            Items in your pantry
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Manual add inventory item */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Add item to inventory..."
+              value={newInventoryItem}
+              onChange={(e) => setNewInventoryItem(e.target.value)}
+              onKeyPress={handleInventoryKeyPress}
+              className="flex-1"
+            />
+            <Button onClick={handleAddInventoryItem} size="icon" variant="outline">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
           {inventoryItems.length > 0 ? (
             <div className="space-y-2">
               {inventoryItems.map((item, index) => {
                 const isInShoppingList = shoppingList.some(
-                  listItem => listItem.toLowerCase() === item.toLowerCase()
+                  listItem => listItem.name.toLowerCase() === item.name.toLowerCase()
                 );
                 return (
                   <div
                     key={index}
                     className="flex items-center justify-between p-3 bg-muted rounded-lg"
                   >
-                    <span className="font-medium">{item}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{item.name}</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          onClick={() => onUpdateInventoryItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <Badge variant="secondary" className="min-w-[2rem] justify-center">
+                          {item.quantity}
+                        </Badge>
+                        <Button
+                          onClick={() => onUpdateInventoryItem(index, { quantity: item.quantity + 1 })}
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
-                        onClick={() => onAddToShoppingList(item)}
+                        onClick={() => onAddToShoppingList(item.name)}
                         size="sm"
                         variant="ghost"
                         disabled={isInShoppingList}
@@ -231,7 +313,7 @@ const InventoryList = ({
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
               <p className="text-muted-foreground">
-                No inventory yet. Take a photo to get started!
+                No inventory yet. Take a photo or add items manually!
               </p>
             </div>
           )}
@@ -277,7 +359,51 @@ const InventoryList = ({
                   key={index}
                   className="flex items-center justify-between p-3 bg-card border rounded-lg hover:shadow-soft transition-all"
                 >
-                  <span className="font-medium">{item}</span>
+                  <div className="flex items-center gap-3 flex-1">
+                    {editingShoppingIndex === index ? (
+                      <Input
+                        value={editingShoppingValue}
+                        onChange={(e) => setEditingShoppingValue(e.target.value)}
+                        onKeyDown={handleEditKeyPress}
+                        onBlur={saveShoppingEdit}
+                        autoFocus
+                        className="h-8 flex-1"
+                      />
+                    ) : (
+                      <>
+                        <span className="font-medium">{item.name}</span>
+                        <Button
+                          onClick={() => startEditingShopping(index, item.name)}
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 opacity-50 hover:opacity-100"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        onClick={() => onUpdateShoppingItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <Badge variant="outline" className="min-w-[2rem] justify-center">
+                        {item.quantity}
+                      </Badge>
+                      <Button
+                        onClick={() => onUpdateShoppingItem(index, { quantity: item.quantity + 1 })}
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       onClick={() => onMarkAsBought(index)}
