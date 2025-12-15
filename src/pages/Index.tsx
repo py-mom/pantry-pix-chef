@@ -122,6 +122,13 @@ const Index = () => {
     saveToStorage("pantry-shopping-list", newList);
   };
 
+  const removeFromInventory = (index: number) => {
+    const newInventory = inventoryItems.filter((_, i) => i !== index);
+    setInventoryItems(newInventory);
+    saveToStorage("pantry-inventory", newInventory);
+    saveToStorage("pantry-previous-inventory", newInventory);
+  };
+
   const markAsBought = (index: number) => {
     removeFromShoppingList(index);
     toast({
@@ -298,6 +305,7 @@ const Index = () => {
               weeklyStaples={weeklyStaples}
               onAddToShoppingList={addToShoppingList}
               onRemoveFromShoppingList={removeFromShoppingList}
+              onRemoveFromInventory={removeFromInventory}
               onMarkAsBought={markAsBought}
               onAddWeeklyStaple={addWeeklyStaple}
               onRemoveWeeklyStaple={removeWeeklyStaple}
