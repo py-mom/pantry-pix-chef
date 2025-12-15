@@ -94,6 +94,21 @@ const LABEL_MAP: Record<string, string> = {
   "spread": "spread"
 };
 
+// Extract base product word to deduplicate similar items (e.g., "strawberry jam" -> "jam")
+function getBaseProductWord(label: string): string {
+  const words = label.toLowerCase().split(' ');
+  // Common product category words that indicate the same product type
+  const categoryWords = ['jam', 'jelly', 'butter', 'milk', 'yogurt', 'cheese', 'bread', 'rice', 'pasta', 'cereal', 'eggs', 'apple', 'banana', 'orange', 'tomato', 'potato', 'onion', 'carrot', 'pepper'];
+  
+  for (const word of words) {
+    if (categoryWords.includes(word)) {
+      return word;
+    }
+  }
+  // If no category word found, use the full label
+  return label.toLowerCase();
+}
+
 function normalize(label: string): string {
   const s = label.toLowerCase().trim();
   // Return mapped value if exists, otherwise return original casing preserved for brands
@@ -146,20 +161,33 @@ export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<strin
       .filter((r: any) => typeof r?.label === "string" && typeof r?.score === "number")
       .sort((a: any, b: any) => b.score - a.score);
 
-    // Try with lowered threshold first
-    let filtered = allResults
-      .filter((r: any) => r.score >= 0.05) // Much lower threshold
-      .map((r: any) => normalize(r.label));
-
-    // If still no results, take top 3 results regardless of score
-    if (filtered.length === 0 && allResults.length > 0) {
-      filtered = allResults
-        .slice(0, 3)
-        .map((r: any) => normalize(r.label));
+    // Take top result and any significantly different items
+    // Avoid duplicate variations of the same product (e.g., multiple jam types for one jar)
+    const seen = new Set<string>();
+    const filtered: string[] = [];
+    
+    for (const r of allResults) {
+      if (r.score < 0.05) continue;
+      
+      const label = normalize(r.label);
+      const baseWord = getBaseProductWord(label);
+      
+      // Skip if we already have an item with the same base product
+      if (seen.has(baseWord)) continue;
+      
+      seen.add(baseWord);
+      filtered.push(label);
+      
+      // Limit to top 5 distinct products
+      if (filtered.length >= 5) break;
     }
 
-    const uniq = Array.from(new Set(filtered));
-    if (uniq.length) return uniq.slice(0, 10);
+    // If no results above threshold, take just the top result
+    if (filtered.length === 0 && allResults.length > 0) {
+      filtered.push(normalize(allResults[0].label));
+    }
+
+    if (filtered.length) return filtered;
   } catch (err) {
     console.warn("Zero-shot classification failed, falling back to ImageNet:", err);
   }
