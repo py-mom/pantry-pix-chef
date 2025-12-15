@@ -191,17 +191,34 @@ const InventoryList = ({
         <CardContent>
           {inventoryItems.length > 0 ? (
             <div className="space-y-2">
-              {inventoryItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                >
-                  <span className="font-medium">{item}</span>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary">
-                    In Stock
-                  </Badge>
-                </div>
-              ))}
+              {inventoryItems.map((item, index) => {
+                const isInShoppingList = shoppingList.some(
+                  listItem => listItem.toLowerCase() === item.toLowerCase()
+                );
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                  >
+                    <span className="font-medium">{item}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => onAddToShoppingList(item)}
+                        size="sm"
+                        variant="ghost"
+                        disabled={isInShoppingList}
+                        className="h-8 text-xs hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <ShoppingCart className="h-3 w-3 mr-1" />
+                        {isInShoppingList ? "Added" : "Add to List"}
+                      </Button>
+                      <Badge variant="secondary" className="bg-primary/10 text-primary">
+                        In Stock
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
