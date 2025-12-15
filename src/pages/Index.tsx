@@ -10,53 +10,42 @@ import RecipeRecommendations from "@/components/RecipeRecommendations";
 import CuisinePreferences from "@/components/CuisinePreferences";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useInventorySync } from "@/hooks/useInventorySync";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { InventoryItem, ShoppingItem, GroceryCategory } from "@/types/inventory";
+import { GroceryCategory } from "@/types/inventory";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("camera");
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [weeklyStaples, setWeeklyStaples] = useState<string[]>([]);
   const { toast } = useToast();
-  const { user, loading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const {
+    inventoryItems,
+    shoppingList,
+    loading: dataLoading,
+    addToInventory,
+    updateInventoryItem,
+    removeFromInventory,
+    addToShoppingList,
+    updateShoppingItem,
+    removeFromShoppingList,
+    markAsBought,
+    addMissingItemsToShoppingList,
+    replaceInventory,
+  } = useInventorySync(user?.id);
 
   // Redirect to auth if not authenticated
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       navigate("/auth");
     }
-  }, [user, loading, navigate]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    // Load data from localStorage on mount
-    const savedInventory = localStorage.getItem("pantry-inventory");
-    const savedShoppingList = localStorage.getItem("pantry-shopping-list");
+    // Load weekly staples from localStorage (keeping local for now)
     const savedWeeklyStaples = localStorage.getItem("pantry-weekly-staples");
-    
-    if (savedInventory) {
-      const parsed = JSON.parse(savedInventory);
-      // Migrate old string[] format to InventoryItem[]
-      if (parsed.length > 0 && typeof parsed[0] === 'string') {
-        const migrated = parsed.map((name: string) => ({ name, quantity: 1 }));
-        setInventoryItems(migrated);
-        saveToStorage("pantry-inventory", migrated);
-      } else {
-        setInventoryItems(parsed);
-      }
-    }
-    if (savedShoppingList) {
-      const parsed = JSON.parse(savedShoppingList);
-      // Migrate old string[] format to ShoppingItem[]
-      if (parsed.length > 0 && typeof parsed[0] === 'string') {
-        const migrated = parsed.map((name: string) => ({ name, quantity: 1 }));
-        setShoppingList(migrated);
-        saveToStorage("pantry-shopping-list", migrated);
-      } else {
-        setShoppingList(parsed);
-      }
-    }
     if (savedWeeklyStaples) {
       setWeeklyStaples(JSON.parse(savedWeeklyStaples));
     }
@@ -66,64 +55,32 @@ const Index = () => {
     localStorage.setItem(key, JSON.stringify(data));
   };
 
-  const handleNewInventory = (items: string[]) => {
-    // Get the previous inventory to compare
-    const previousInventory: InventoryItem[] = JSON.parse(localStorage.getItem("pantry-previous-inventory") || "[]");
-    const previousNames = previousInventory.map(item => 
-      typeof item === 'string' ? item : item.name
-    );
+  const handleNewInventory = async (items: string[]) => {
+    const result = await replaceInventory(items);
     
-    // Convert string[] to InventoryItem[]
-    const newInventoryItems: InventoryItem[] = items.map(name => ({ name, quantity: 1 }));
+    if (!result) return;
     
-    // Save current inventory as the new inventory
-    setInventoryItems(newInventoryItems);
-    saveToStorage("pantry-inventory", newInventoryItems);
+    const { missingItems, hadPreviousInventory } = result;
     
-    // Save current inventory as previous for next comparison
-    saveToStorage("pantry-previous-inventory", newInventoryItems);
-    
-    if (previousNames.length > 0) {
-      // Find items that were in previous inventory but are missing from current inventory
-      const missingItems = previousNames.filter((prevItem: string) => 
-        !items.some(currentItem => 
-          currentItem.toLowerCase().includes(prevItem.toLowerCase()) ||
-          prevItem.toLowerCase().includes(currentItem.toLowerCase())
-        )
-      );
+    if (hadPreviousInventory && missingItems.length > 0) {
+      const addedCount = await addMissingItemsToShoppingList(missingItems);
       
-      if (missingItems.length > 0) {
-        // Add missing items to shopping list (avoid duplicates)
-        const currentShoppingNames = shoppingList.map(item => item.name.toLowerCase());
-        const newItemsToAdd = missingItems.filter((item: string) => 
-          !currentShoppingNames.some(listItem => 
-            listItem.includes(item.toLowerCase()) ||
-            item.toLowerCase().includes(listItem)
-          )
-        );
-        
-        if (newItemsToAdd.length > 0) {
-          const newShoppingItems: ShoppingItem[] = newItemsToAdd.map(name => ({ name, quantity: 1 }));
-          const updatedShoppingList = [...shoppingList, ...newShoppingItems];
-          setShoppingList(updatedShoppingList);
-          saveToStorage("pantry-shopping-list", updatedShoppingList);
-          
-          toast({
-            title: "Missing Items Detected!",
-            description: `Found ${newItemsToAdd.length} items from your previous inventory that are now missing.`,
-          });
-        } else {
-          toast({
-            title: "Inventory Updated!",
-            description: "All missing items are already on your shopping list.",
-          });
-        }
+      if (addedCount && addedCount > 0) {
+        toast({
+          title: "Missing Items Detected!",
+          description: `Found ${addedCount} items from your previous inventory that are now missing.`,
+        });
       } else {
         toast({
           title: "Inventory Updated!",
-          description: "No missing items detected. Your pantry looks well-stocked!",
+          description: "All missing items are already on your shopping list.",
         });
       }
+    } else if (hadPreviousInventory) {
+      toast({
+        title: "Inventory Updated!",
+        description: "No missing items detected. Your pantry looks well-stocked!",
+      });
     } else {
       toast({
         title: "First Inventory Scan!",
@@ -132,81 +89,6 @@ const Index = () => {
     }
     
     setActiveTab("inventory");
-  };
-
-  const addToShoppingList = (item: string, quantity: number = 1, category?: GroceryCategory) => {
-    const existingIndex = shoppingList.findIndex(
-      i => i.name.toLowerCase() === item.toLowerCase()
-    );
-    
-    if (existingIndex >= 0) {
-      // Update quantity if item exists
-      const updated = [...shoppingList];
-      updated[existingIndex].quantity += quantity;
-      if (category) updated[existingIndex].category = category;
-      setShoppingList(updated);
-      saveToStorage("pantry-shopping-list", updated);
-    } else {
-      const newList = [...shoppingList, { name: item, quantity, category }];
-      setShoppingList(newList);
-      saveToStorage("pantry-shopping-list", newList);
-    }
-  };
-
-  const removeFromShoppingList = (index: number) => {
-    const newList = shoppingList.filter((_, i) => i !== index);
-    setShoppingList(newList);
-    saveToStorage("pantry-shopping-list", newList);
-  };
-
-  const updateShoppingItem = (index: number, updates: Partial<ShoppingItem>) => {
-    const updated = [...shoppingList];
-    updated[index] = { ...updated[index], ...updates };
-    setShoppingList(updated);
-    saveToStorage("pantry-shopping-list", updated);
-  };
-
-  const removeFromInventory = (index: number) => {
-    const newInventory = inventoryItems.filter((_, i) => i !== index);
-    setInventoryItems(newInventory);
-    saveToStorage("pantry-inventory", newInventory);
-    saveToStorage("pantry-previous-inventory", newInventory);
-  };
-
-  const addToInventory = (item: string, quantity: number = 1, category?: GroceryCategory) => {
-    const existingIndex = inventoryItems.findIndex(
-      i => i.name.toLowerCase() === item.toLowerCase()
-    );
-    
-    if (existingIndex >= 0) {
-      // Update quantity if item exists
-      const updated = [...inventoryItems];
-      updated[existingIndex].quantity += quantity;
-      if (category) updated[existingIndex].category = category;
-      setInventoryItems(updated);
-      saveToStorage("pantry-inventory", updated);
-    } else {
-      const newInventory = [...inventoryItems, { name: item, quantity, category }];
-      setInventoryItems(newInventory);
-      saveToStorage("pantry-inventory", newInventory);
-    }
-    saveToStorage("pantry-previous-inventory", inventoryItems);
-  };
-
-  const updateInventoryItem = (index: number, updates: Partial<InventoryItem>) => {
-    const updated = [...inventoryItems];
-    updated[index] = { ...updated[index], ...updates };
-    setInventoryItems(updated);
-    saveToStorage("pantry-inventory", updated);
-    saveToStorage("pantry-previous-inventory", updated);
-  };
-
-  const markAsBought = (index: number) => {
-    removeFromShoppingList(index);
-    toast({
-      title: "Item purchased!",
-      description: "Item removed from shopping list.",
-    });
   };
 
   const addWeeklyStaple = (item: string) => {
@@ -231,7 +113,7 @@ const Index = () => {
     });
   };
 
-  const addAllStaplesToShoppingList = () => {
+  const addAllStaplesToShoppingList = async () => {
     if (weeklyStaples.length === 0) return;
     
     const currentShoppingNames = shoppingList.map(item => item.name.toLowerCase());
@@ -243,10 +125,9 @@ const Index = () => {
     );
     
     if (itemsToAdd.length > 0) {
-      const newShoppingItems: ShoppingItem[] = itemsToAdd.map(name => ({ name, quantity: 1 }));
-      const newShoppingList = [...shoppingList, ...newShoppingItems];
-      setShoppingList(newShoppingList);
-      saveToStorage("pantry-shopping-list", newShoppingList);
+      for (const item of itemsToAdd) {
+        await addToShoppingList(item, 1);
+      }
       toast({
         title: "Weekly Staples Added!",
         description: `Added ${itemsToAdd.length} staples to your shopping list.`,
@@ -268,8 +149,8 @@ const Index = () => {
     navigate("/auth");
   };
 
-  // Show loading spinner while checking authentication
-  if (loading) {
+  // Show loading spinner while checking authentication or loading data
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex items-center space-x-2">
@@ -365,7 +246,7 @@ const Index = () => {
               <CardContent>
                 <CameraCapture 
                   onItemsDetected={handleNewInventory}
-                  onAddToShoppingList={addToShoppingList} 
+                  onAddToShoppingList={(item, qty, cat) => addToShoppingList(item, qty, cat)} 
                 />
               </CardContent>
             </Card>

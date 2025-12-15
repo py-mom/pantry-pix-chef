@@ -30,13 +30,16 @@ export const GROCERY_CATEGORIES: { value: GroceryCategory; label: string; store?
 ];
 
 export interface InventoryItem {
+  id?: string;
   name: string;
   quantity: number;
   category?: GroceryCategory;
 }
 
 export interface ShoppingItem {
+  id?: string;
   name: string;
   quantity: number;
   category?: GroceryCategory;
+  bought?: boolean;
 }

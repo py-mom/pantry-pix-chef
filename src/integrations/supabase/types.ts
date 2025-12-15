@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      inventory_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -39,6 +69,39 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      shopping_list_items: {
+        Row: {
+          bought: boolean
+          category: string
+          created_at: string
+          id: string
+          name: string
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bought?: boolean
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bought?: boolean
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          quantity?: number
           updated_at?: string
           user_id?: string
         }
