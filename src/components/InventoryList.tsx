@@ -1,11 +1,14 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight, Minus, Pencil, ArrowUpDown, Store } from "lucide-react";
+import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight, Minus, Pencil, ArrowUpDown, Store, Filter, Share2, Copy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 import { InventoryItem, ShoppingItem, GroceryCategory, GROCERY_CATEGORIES } from "@/types/inventory";
 
 type SortOption = "name" | "category" | "quantity";
@@ -41,6 +44,7 @@ const InventoryList = ({
   onRemoveWeeklyStaple,
   onAddAllStaplesToShoppingList,
 }: InventoryListProps) => {
+  const { toast } = useToast();
   const [newItem, setNewItem] = useState("");
   const [newItemCategory, setNewItemCategory] = useState<GroceryCategory>("other");
   const [newInventoryItem, setNewInventoryItem] = useState("");
@@ -51,6 +55,9 @@ const InventoryList = ({
   const [editingShoppingValue, setEditingShoppingValue] = useState("");
   const [inventorySortBy, setInventorySortBy] = useState<SortOption>("name");
   const [shoppingSortBy, setShoppingSortBy] = useState<SortOption>("category");
+  const [inventoryFilter, setInventoryFilter] = useState<GroceryCategory | "all">("all");
+  const [shoppingFilter, setShoppingFilter] = useState<GroceryCategory | "all">("all");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   // Common weekly staples that users can quickly add
   const commonStaples = [
@@ -100,8 +107,18 @@ const InventoryList = ({
     });
   };
 
-  const sortedInventory = useMemo(() => sortItems(inventoryItems, inventorySortBy), [inventoryItems, inventorySortBy]);
-  const sortedShopping = useMemo(() => sortItems(shoppingList, shoppingSortBy), [shoppingList, shoppingSortBy]);
+  const filteredInventory = useMemo(() => {
+    if (inventoryFilter === "all") return inventoryItems;
+    return inventoryItems.filter(item => (item.category || "other") === inventoryFilter);
+  }, [inventoryItems, inventoryFilter]);
+
+  const filteredShopping = useMemo(() => {
+    if (shoppingFilter === "all") return shoppingList;
+    return shoppingList.filter(item => (item.category || "other") === shoppingFilter);
+  }, [shoppingList, shoppingFilter]);
+
+  const sortedInventory = useMemo(() => sortItems(filteredInventory, inventorySortBy), [filteredInventory, inventorySortBy]);
+  const sortedShopping = useMemo(() => sortItems(filteredShopping, shoppingSortBy), [filteredShopping, shoppingSortBy]);
 
   // Group shopping items by store for better planning
   const shoppingByStore = useMemo(() => {
@@ -113,6 +130,77 @@ const InventoryList = ({
     });
     return groups;
   }, [shoppingList]);
+
+  // Get unique categories in use for filter options
+  const usedInventoryCategories = useMemo(() => {
+    const cats = new Set<GroceryCategory>();
+    inventoryItems.forEach(item => cats.add(item.category || "other"));
+    return Array.from(cats);
+  }, [inventoryItems]);
+
+  const usedShoppingCategories = useMemo(() => {
+    const cats = new Set<GroceryCategory>();
+    shoppingList.forEach(item => cats.add(item.category || "other"));
+    return Array.from(cats);
+  }, [shoppingList]);
+
+  // Generate shareable shopping list text
+  const generateShareText = () => {
+    if (shoppingList.length === 0) return "Shopping list is empty";
+    
+    const groupedByStore: Record<string, ShoppingItem[]> = {};
+    shoppingList.forEach(item => {
+      const store = getCategoryStore(item.category) || "Regular grocery store";
+      if (!groupedByStore[store]) groupedByStore[store] = [];
+      groupedByStore[store].push(item);
+    });
+
+    let text = "🛒 Shopping List\n\n";
+    Object.entries(groupedByStore).forEach(([store, items]) => {
+      text += `📍 ${store}\n`;
+      items.forEach(item => {
+        text += `  • ${item.name} (x${item.quantity})\n`;
+      });
+      text += "\n";
+    });
+    return text.trim();
+  };
+
+  const handleCopyToClipboard = async () => {
+    const text = generateShareText();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied!",
+        description: "Shopping list copied to clipboard",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to copy to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    const text = generateShareText();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Shopping List",
+          text: text,
+        });
+      } catch (err) {
+        // User cancelled or error
+        if ((err as Error).name !== "AbortError") {
+          handleCopyToClipboard();
+        }
+      }
+    } else {
+      handleCopyToClipboard();
+    }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -279,20 +367,45 @@ const InventoryList = ({
             <Package className="h-5 w-5 text-primary" />
             Current Inventory
           </CardTitle>
-          <CardDescription className="flex items-center justify-between">
+          <CardDescription className="flex items-center justify-between flex-wrap gap-2">
             <span>Items in your pantry</span>
-            <Select value={inventorySortBy} onValueChange={(v) => setInventorySortBy(v as SortOption)}>
-              <SelectTrigger className="w-32 h-7 text-xs">
-                <ArrowUpDown className="h-3 w-3 mr-1" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">By Name</SelectItem>
-                <SelectItem value="category">By Category</SelectItem>
-                <SelectItem value="quantity">By Quantity</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={inventoryFilter} onValueChange={(v) => setInventoryFilter(v as GroceryCategory | "all")}>
+                <SelectTrigger className="w-28 h-7 text-xs">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {usedInventoryCategories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{getCategoryLabel(cat)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={inventorySortBy} onValueChange={(v) => setInventorySortBy(v as SortOption)}>
+                <SelectTrigger className="w-28 h-7 text-xs">
+                  <ArrowUpDown className="h-3 w-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">By Name</SelectItem>
+                  <SelectItem value="category">By Category</SelectItem>
+                  <SelectItem value="quantity">By Quantity</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardDescription>
+          {inventoryFilter !== "all" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setInventoryFilter("all")}
+              className="h-6 text-xs mt-1"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear filter: {getCategoryLabel(inventoryFilter)}
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Manual add inventory item */}
@@ -418,20 +531,75 @@ const InventoryList = ({
               </Badge>
             )}
           </CardTitle>
-          <CardDescription className="flex items-center justify-between">
+          <CardDescription className="flex items-center justify-between flex-wrap gap-2">
             <span>Items you need to buy</span>
-            <Select value={shoppingSortBy} onValueChange={(v) => setShoppingSortBy(v as SortOption)}>
-              <SelectTrigger className="w-32 h-7 text-xs">
-                <ArrowUpDown className="h-3 w-3 mr-1" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">By Name</SelectItem>
-                <SelectItem value="category">By Category</SelectItem>
-                <SelectItem value="quantity">By Quantity</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={shoppingFilter} onValueChange={(v) => setShoppingFilter(v as GroceryCategory | "all")}>
+                <SelectTrigger className="w-28 h-7 text-xs">
+                  <Filter className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {usedShoppingCategories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{getCategoryLabel(cat)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={shoppingSortBy} onValueChange={(v) => setShoppingSortBy(v as SortOption)}>
+                <SelectTrigger className="w-28 h-7 text-xs">
+                  <ArrowUpDown className="h-3 w-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">By Name</SelectItem>
+                  <SelectItem value="category">By Category</SelectItem>
+                  <SelectItem value="quantity">By Quantity</SelectItem>
+                </SelectContent>
+              </Select>
+              <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="icon" variant="outline" className="h-7 w-7" disabled={shoppingList.length === 0}>
+                    <Share2 className="h-3 w-3" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Share Shopping List</DialogTitle>
+                    <DialogDescription>
+                      Copy or share your shopping list organized by store
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Textarea
+                    readOnly
+                    value={generateShareText()}
+                    className="min-h-[200px] font-mono text-sm"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={handleCopyToClipboard}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </Button>
+                    <Button onClick={handleShare}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardDescription>
+          {shoppingFilter !== "all" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShoppingFilter("all")}
+              className="h-6 text-xs mt-1"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear filter: {getCategoryLabel(shoppingFilter)}
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Add new item */}
