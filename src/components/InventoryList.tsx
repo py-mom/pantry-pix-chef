@@ -12,6 +12,7 @@ interface InventoryListProps {
   weeklyStaples: string[];
   onAddToShoppingList: (item: string) => void;
   onRemoveFromShoppingList: (index: number) => void;
+  onRemoveFromInventory: (index: number) => void;
   onMarkAsBought: (index: number) => void;
   onAddWeeklyStaple: (item: string) => void;
   onRemoveWeeklyStaple: (item: string) => void;
@@ -24,6 +25,7 @@ const InventoryList = ({
   weeklyStaples,
   onAddToShoppingList,
   onRemoveFromShoppingList,
+  onRemoveFromInventory,
   onMarkAsBought,
   onAddWeeklyStaple,
   onRemoveWeeklyStaple,
@@ -212,9 +214,14 @@ const InventoryList = ({
                         <ShoppingCart className="h-3 w-3 mr-1" />
                         {isInShoppingList ? "Added" : "Add to List"}
                       </Button>
-                      <Badge variant="secondary" className="bg-primary/10 text-primary">
-                        In Stock
-                      </Badge>
+                      <Button
+                        onClick={() => onRemoveFromInventory(index)}
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 );
