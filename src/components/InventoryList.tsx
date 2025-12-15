@@ -1,21 +1,24 @@
-import { useState } from "react";
-import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight, Minus, Pencil } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight, Minus, Pencil, ArrowUpDown, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { InventoryItem, ShoppingItem } from "@/types/inventory";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { InventoryItem, ShoppingItem, GroceryCategory, GROCERY_CATEGORIES } from "@/types/inventory";
+
+type SortOption = "name" | "category" | "quantity";
 
 interface InventoryListProps {
   inventoryItems: InventoryItem[];
   shoppingList: ShoppingItem[];
   weeklyStaples: string[];
-  onAddToShoppingList: (item: string, quantity?: number) => void;
+  onAddToShoppingList: (item: string, quantity?: number, category?: GroceryCategory) => void;
   onRemoveFromShoppingList: (index: number) => void;
   onUpdateShoppingItem: (index: number, updates: Partial<ShoppingItem>) => void;
   onRemoveFromInventory: (index: number) => void;
-  onAddToInventory: (item: string, quantity?: number) => void;
+  onAddToInventory: (item: string, quantity?: number, category?: GroceryCategory) => void;
   onUpdateInventoryItem: (index: number, updates: Partial<InventoryItem>) => void;
   onMarkAsBought: (index: number) => void;
   onAddWeeklyStaple: (item: string) => void;
@@ -39,11 +42,15 @@ const InventoryList = ({
   onAddAllStaplesToShoppingList,
 }: InventoryListProps) => {
   const [newItem, setNewItem] = useState("");
+  const [newItemCategory, setNewItemCategory] = useState<GroceryCategory>("other");
   const [newInventoryItem, setNewInventoryItem] = useState("");
+  const [newInventoryCategory, setNewInventoryCategory] = useState<GroceryCategory>("other");
   const [newStaple, setNewStaple] = useState("");
   const [staplesOpen, setStaplesOpen] = useState(false);
   const [editingShoppingIndex, setEditingShoppingIndex] = useState<number | null>(null);
   const [editingShoppingValue, setEditingShoppingValue] = useState("");
+  const [inventorySortBy, setInventorySortBy] = useState<SortOption>("name");
+  const [shoppingSortBy, setShoppingSortBy] = useState<SortOption>("category");
 
   // Common weekly staples that users can quickly add
   const commonStaples = [
@@ -54,17 +61,58 @@ const InventoryList = ({
 
   const handleAddItem = () => {
     if (newItem.trim()) {
-      onAddToShoppingList(newItem.trim());
+      onAddToShoppingList(newItem.trim(), 1, newItemCategory);
       setNewItem("");
+      setNewItemCategory("other");
     }
   };
 
   const handleAddInventoryItem = () => {
     if (newInventoryItem.trim()) {
-      onAddToInventory(newInventoryItem.trim());
+      onAddToInventory(newInventoryItem.trim(), 1, newInventoryCategory);
       setNewInventoryItem("");
+      setNewInventoryCategory("other");
     }
   };
+
+  const getCategoryLabel = (category?: GroceryCategory) => {
+    if (!category) return "Other";
+    return GROCERY_CATEGORIES.find(c => c.value === category)?.label || "Other";
+  };
+
+  const getCategoryStore = (category?: GroceryCategory) => {
+    if (!category) return null;
+    return GROCERY_CATEGORIES.find(c => c.value === category)?.store || null;
+  };
+
+  const sortItems = <T extends InventoryItem | ShoppingItem>(items: T[], sortBy: SortOption): T[] => {
+    return [...items].sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "category":
+          return (a.category || "other").localeCompare(b.category || "other");
+        case "quantity":
+          return b.quantity - a.quantity;
+        default:
+          return 0;
+      }
+    });
+  };
+
+  const sortedInventory = useMemo(() => sortItems(inventoryItems, inventorySortBy), [inventoryItems, inventorySortBy]);
+  const sortedShopping = useMemo(() => sortItems(shoppingList, shoppingSortBy), [shoppingList, shoppingSortBy]);
+
+  // Group shopping items by store for better planning
+  const shoppingByStore = useMemo(() => {
+    const groups: Record<string, ShoppingItem[]> = {};
+    shoppingList.forEach(item => {
+      const store = getCategoryStore(item.category) || "Regular grocery store";
+      if (!groups[store]) groups[store] = [];
+      groups[store].push(item);
+    });
+    return groups;
+  }, [shoppingList]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -231,28 +279,50 @@ const InventoryList = ({
             <Package className="h-5 w-5 text-primary" />
             Current Inventory
           </CardTitle>
-          <CardDescription>
-            Items in your pantry
+          <CardDescription className="flex items-center justify-between">
+            <span>Items in your pantry</span>
+            <Select value={inventorySortBy} onValueChange={(v) => setInventorySortBy(v as SortOption)}>
+              <SelectTrigger className="w-32 h-7 text-xs">
+                <ArrowUpDown className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">By Name</SelectItem>
+                <SelectItem value="category">By Category</SelectItem>
+                <SelectItem value="quantity">By Quantity</SelectItem>
+              </SelectContent>
+            </Select>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Manual add inventory item */}
           <div className="flex gap-2">
             <Input
-              placeholder="Add item to inventory..."
+              placeholder="Add item..."
               value={newInventoryItem}
               onChange={(e) => setNewInventoryItem(e.target.value)}
               onKeyPress={handleInventoryKeyPress}
               className="flex-1"
             />
+            <Select value={newInventoryCategory} onValueChange={(v) => setNewInventoryCategory(v as GroceryCategory)}>
+              <SelectTrigger className="w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GROCERY_CATEGORIES.map(cat => (
+                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button onClick={handleAddInventoryItem} size="icon" variant="outline">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
 
-          {inventoryItems.length > 0 ? (
+          {sortedInventory.length > 0 ? (
             <div className="space-y-2">
-              {inventoryItems.map((item, index) => {
+              {sortedInventory.map((item, index) => {
+                const originalIndex = inventoryItems.findIndex(i => i.name === item.name && i.quantity === item.quantity);
                 const isInShoppingList = shoppingList.some(
                   listItem => listItem.name.toLowerCase() === item.name.toLowerCase()
                 );
@@ -261,22 +331,25 @@ const InventoryList = ({
                     key={index}
                     className="flex items-center justify-between p-3 bg-muted rounded-lg"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-medium">{item.name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {getCategoryLabel(item.category)}
+                      </Badge>
                       <div className="flex items-center gap-1">
                         <Button
-                          onClick={() => onUpdateInventoryItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                          onClick={() => onUpdateInventoryItem(originalIndex, { quantity: Math.max(1, item.quantity - 1) })}
                           size="icon"
                           variant="ghost"
                           className="h-6 w-6"
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
-                        <Badge variant="secondary" className="min-w-[2rem] justify-center">
+                        <Badge variant="outline" className="min-w-[2rem] justify-center">
                           {item.quantity}
                         </Badge>
                         <Button
-                          onClick={() => onUpdateInventoryItem(index, { quantity: item.quantity + 1 })}
+                          onClick={() => onUpdateInventoryItem(originalIndex, { quantity: item.quantity + 1 })}
                           size="icon"
                           variant="ghost"
                           className="h-6 w-6"
@@ -286,18 +359,31 @@ const InventoryList = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Select 
+                        value={item.category || "other"} 
+                        onValueChange={(v) => onUpdateInventoryItem(originalIndex, { category: v as GroceryCategory })}
+                      >
+                        <SelectTrigger className="w-24 h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {GROCERY_CATEGORIES.map(cat => (
+                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Button
-                        onClick={() => onAddToShoppingList(item.name)}
+                        onClick={() => onAddToShoppingList(item.name, 1, item.category)}
                         size="sm"
                         variant="ghost"
                         disabled={isInShoppingList}
                         className="h-8 text-xs hover:bg-accent hover:text-accent-foreground"
                       >
                         <ShoppingCart className="h-3 w-3 mr-1" />
-                        {isInShoppingList ? "Added" : "Add to List"}
+                        {isInShoppingList ? "Added" : "Add"}
                       </Button>
                       <Button
-                        onClick={() => onRemoveFromInventory(index)}
+                        onClick={() => onRemoveFromInventory(originalIndex)}
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
@@ -332,98 +418,162 @@ const InventoryList = ({
               </Badge>
             )}
           </CardTitle>
-          <CardDescription>
-            Items you need to buy
+          <CardDescription className="flex items-center justify-between">
+            <span>Items you need to buy</span>
+            <Select value={shoppingSortBy} onValueChange={(v) => setShoppingSortBy(v as SortOption)}>
+              <SelectTrigger className="w-32 h-7 text-xs">
+                <ArrowUpDown className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">By Name</SelectItem>
+                <SelectItem value="category">By Category</SelectItem>
+                <SelectItem value="quantity">By Quantity</SelectItem>
+              </SelectContent>
+            </Select>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Add new item */}
           <div className="flex gap-2">
             <Input
-              placeholder="Add item to shopping list..."
+              placeholder="Add item..."
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
               onKeyPress={handleKeyPress}
               className="flex-1"
             />
+            <Select value={newItemCategory} onValueChange={(v) => setNewItemCategory(v as GroceryCategory)}>
+              <SelectTrigger className="w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GROCERY_CATEGORIES.map(cat => (
+                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button onClick={handleAddItem} size="icon" variant="warm">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
 
+          {/* Store grouping summary */}
+          {Object.keys(shoppingByStore).length > 1 && (
+            <div className="p-3 bg-accent/10 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Store className="h-4 w-4 text-accent" />
+                <span className="font-medium text-sm">Stores to visit:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(shoppingByStore).map(([store, items]) => (
+                  <Badge key={store} variant="outline" className="text-xs">
+                    {store} ({items.length})
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Shopping list items */}
-          {shoppingList.length > 0 ? (
+          {sortedShopping.length > 0 ? (
             <div className="space-y-2">
-              {shoppingList.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-card border rounded-lg hover:shadow-soft transition-all"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    {editingShoppingIndex === index ? (
-                      <Input
-                        value={editingShoppingValue}
-                        onChange={(e) => setEditingShoppingValue(e.target.value)}
-                        onKeyDown={handleEditKeyPress}
-                        onBlur={saveShoppingEdit}
-                        autoFocus
-                        className="h-8 flex-1"
-                      />
-                    ) : (
-                      <>
-                        <span className="font-medium">{item.name}</span>
+              {sortedShopping.map((item, index) => {
+                const originalIndex = shoppingList.findIndex(i => i.name === item.name && i.quantity === item.quantity);
+                const storeHint = getCategoryStore(item.category);
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-card border rounded-lg hover:shadow-soft transition-all"
+                  >
+                    <div className="flex items-center gap-3 flex-1 flex-wrap">
+                      {editingShoppingIndex === originalIndex ? (
+                        <Input
+                          value={editingShoppingValue}
+                          onChange={(e) => setEditingShoppingValue(e.target.value)}
+                          onKeyDown={handleEditKeyPress}
+                          onBlur={saveShoppingEdit}
+                          autoFocus
+                          className="h-8 flex-1"
+                        />
+                      ) : (
+                        <>
+                          <span className="font-medium">{item.name}</span>
+                          <Button
+                            onClick={() => startEditingShopping(originalIndex, item.name)}
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 opacity-50 hover:opacity-100"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                      <Badge variant="secondary" className="text-xs">
+                        {getCategoryLabel(item.category)}
+                      </Badge>
+                      {storeHint && (
+                        <Badge variant="outline" className="text-xs bg-accent/10">
+                          <Store className="h-3 w-3 mr-1" />
+                          {storeHint}
+                        </Badge>
+                      )}
+                      <div className="flex items-center gap-1">
                         <Button
-                          onClick={() => startEditingShopping(index, item.name)}
+                          onClick={() => onUpdateShoppingItem(originalIndex, { quantity: Math.max(1, item.quantity - 1) })}
                           size="icon"
                           variant="ghost"
-                          className="h-6 w-6 opacity-50 hover:opacity-100"
+                          className="h-6 w-6"
                         >
-                          <Pencil className="h-3 w-3" />
+                          <Minus className="h-3 w-3" />
                         </Button>
-                      </>
-                    )}
-                    <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="min-w-[2rem] justify-center">
+                          {item.quantity}
+                        </Badge>
+                        <Button
+                          onClick={() => onUpdateShoppingItem(originalIndex, { quantity: item.quantity + 1 })}
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Select 
+                        value={item.category || "other"} 
+                        onValueChange={(v) => onUpdateShoppingItem(originalIndex, { category: v as GroceryCategory })}
+                      >
+                        <SelectTrigger className="w-24 h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {GROCERY_CATEGORIES.map(cat => (
+                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Button
-                        onClick={() => onUpdateShoppingItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                        onClick={() => onMarkAsBought(originalIndex)}
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6"
+                        className="h-8 w-8 text-primary hover:text-primary-foreground hover:bg-primary"
                       >
-                        <Minus className="h-3 w-3" />
+                        <Check className="h-4 w-4" />
                       </Button>
-                      <Badge variant="outline" className="min-w-[2rem] justify-center">
-                        {item.quantity}
-                      </Badge>
                       <Button
-                        onClick={() => onUpdateShoppingItem(index, { quantity: item.quantity + 1 })}
+                        onClick={() => onRemoveFromShoppingList(originalIndex)}
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6"
+                        className="h-8 w-8 text-destructive hover:text-destructive-foreground hover:bg-destructive"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => onMarkAsBought(index)}
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-primary hover:text-primary-foreground hover:bg-primary"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      onClick={() => onRemoveFromShoppingList(index)}
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-destructive hover:text-destructive-foreground hover:bg-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-6">
