@@ -11,7 +11,7 @@ import CuisinePreferences from "@/components/CuisinePreferences";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { InventoryItem, ShoppingItem } from "@/types/inventory";
+import { InventoryItem, ShoppingItem, GroceryCategory } from "@/types/inventory";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("camera");
@@ -134,7 +134,7 @@ const Index = () => {
     setActiveTab("inventory");
   };
 
-  const addToShoppingList = (item: string, quantity: number = 1) => {
+  const addToShoppingList = (item: string, quantity: number = 1, category?: GroceryCategory) => {
     const existingIndex = shoppingList.findIndex(
       i => i.name.toLowerCase() === item.toLowerCase()
     );
@@ -143,10 +143,11 @@ const Index = () => {
       // Update quantity if item exists
       const updated = [...shoppingList];
       updated[existingIndex].quantity += quantity;
+      if (category) updated[existingIndex].category = category;
       setShoppingList(updated);
       saveToStorage("pantry-shopping-list", updated);
     } else {
-      const newList = [...shoppingList, { name: item, quantity }];
+      const newList = [...shoppingList, { name: item, quantity, category }];
       setShoppingList(newList);
       saveToStorage("pantry-shopping-list", newList);
     }
@@ -172,7 +173,7 @@ const Index = () => {
     saveToStorage("pantry-previous-inventory", newInventory);
   };
 
-  const addToInventory = (item: string, quantity: number = 1) => {
+  const addToInventory = (item: string, quantity: number = 1, category?: GroceryCategory) => {
     const existingIndex = inventoryItems.findIndex(
       i => i.name.toLowerCase() === item.toLowerCase()
     );
@@ -181,10 +182,11 @@ const Index = () => {
       // Update quantity if item exists
       const updated = [...inventoryItems];
       updated[existingIndex].quantity += quantity;
+      if (category) updated[existingIndex].category = category;
       setInventoryItems(updated);
       saveToStorage("pantry-inventory", updated);
     } else {
-      const newInventory = [...inventoryItems, { name: item, quantity }];
+      const newInventory = [...inventoryItems, { name: item, quantity, category }];
       setInventoryItems(newInventory);
       saveToStorage("pantry-inventory", newInventory);
     }
