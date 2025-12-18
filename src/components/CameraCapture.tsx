@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { detectFoodItemsFromDataUrl } from "@/lib/vision/detectFood";
+import { GroceryCategory } from "@/types/inventory";
+
 interface CameraCaptureProps {
   onItemsDetected: (items: string[]) => void;
-  onAddToShoppingList: (item: string) => void;
+  onAddToShoppingList: (item: string, quantity?: number, category?: GroceryCategory) => void | Promise<void>;
 }
 
 const CameraCapture = ({ onItemsDetected, onAddToShoppingList }: CameraCaptureProps) => {
