@@ -26,7 +26,7 @@ interface InventoryListProps {
   onMarkAsBought: (id: string) => void;
   onAddWeeklyStaple: (item: string) => void;
   onRemoveWeeklyStaple: (item: string) => void;
-  onAddAllStaplesToShoppingList: () => void;
+  onAddAllStaplesToShoppingList: () => void | Promise<void>;
 }
 
 const InventoryList = ({
