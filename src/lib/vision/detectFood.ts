@@ -13,7 +13,7 @@ let imagenetPromise: Promise<any> | null = null;
 // Extended vocabulary for specific products, brands, and detailed descriptions
 const CANDIDATE_LABELS = [
   // Specific jams and spreads
-  "strawberry jam","grape jam","raspberry jam","blueberry jam","apricot jam","peach jam","orange marmalade","peanut butter","almond butter","nutella","honey",
+  "strawberry jam","grape jam","raspberry jam","blueberry jam","apricot jam","peach jam","orange marmalade","peanut butter","almond butter","nutella","honey","raw honey","organic honey","manuka honey",
   // Branded products (common brands)
   "jif peanut butter","skippy peanut butter","welch's grape jelly","smuckers jam","kraft peanut butter","skippy natural","adams peanut butter",
   // Produce with varieties
@@ -38,9 +38,9 @@ const CANDIDATE_LABELS = [
   "rice","white rice","brown rice","jasmine rice","basmati rice","wild rice","uncle ben's rice","minute rice",
   // Pasta varieties
   "pasta","spaghetti","penne","penne pasta","macaroni","linguine","fettuccine","angel hair pasta","rigatoni","rotini","farfalle","bow tie pasta","lasagna noodles","orzo","ziti","shells pasta","elbow macaroni",
-  "barilla pasta","kraft mac and cheese","ronzoni pasta","de cecco pasta",
+  "barilla pasta","barilla spaghetti","barilla penne","kraft mac and cheese","ronzoni pasta","de cecco pasta",
   "noodles","egg noodles","ramen noodles","rice noodles","instant noodles","udon noodles","soba noodles","lo mein noodles",
-  "oats","rolled oats","steel cut oats","instant oats","quaker oats","oatmeal",
+  "oats","rolled oats","steel cut oats","instant oats","quaker oats","oatmeal","quaker oatmeal","quaker instant oatmeal","quaker oatmeal cereal",
   // Cereal varieties and brands
   "cereal","cheerios","honey nut cheerios","frosted cheerios","apple cinnamon cheerios",
   "corn flakes","frosted flakes","kellogg's corn flakes",
@@ -51,12 +51,12 @@ const CANDIDATE_LABELS = [
   "kellogg's cereal","general mills cereal","post cereal","quaker cereal",
   "flour","all purpose flour","bread flour","whole wheat flour","king arthur flour",
   // Beverages - Soda and drinks
-  "soda","cola","coca cola","coke","pepsi","sprite","7up","mountain dew","dr pepper","fanta","root beer",
+  "soda","cola","coca cola","coke","pepsi","sprite","7up","7 up","seven up","mountain dew","dr pepper","fanta","root beer",
   "ginger ale","club soda","tonic water","sparkling water","seltzer","la croix",
   "soda can","soda bottle","2 liter soda","diet soda","diet coke","diet pepsi","zero sugar soda",
   "juice","orange juice","apple juice","grape juice","cranberry juice","tomato juice","lemonade",
   "iced tea","sweet tea","green tea","energy drink","red bull","monster energy","gatorade","powerade",
-  "water bottle","bottled water","spring water","mineral water",
+  "water bottle","bottled water","spring water","mineral water","voss water","fiji water","evian water","dasani water","aquafina water","smart water",
   // Jello and desserts
   "jello","jell-o","gelatin","gelatin dessert","pudding","pudding cup","instant pudding","jello cups","fruit jello","jello mix",
   "cool whip","whipped cream","whipped topping",
@@ -86,7 +86,18 @@ const CANDIDATE_LABELS = [
   // Condiments
   "ketchup","mustard","mayonnaise","ranch dressing","salad dressing","bbq sauce","hot sauce","sriracha","soy sauce","worcestershire sauce",
   // Frozen foods
-  "ice cream","frozen pizza","frozen vegetables","frozen fruit","frozen waffles","frozen dinner","tv dinner"
+  "ice cream","frozen pizza","frozen vegetables","frozen fruit","frozen waffles","frozen dinner","tv dinner",
+  // Household items
+  "paper towels","kitchen towels","paper towel roll","bounty paper towels","viva paper towels",
+  "toilet paper","toilet tissue","charmin toilet paper","scott toilet paper",
+  "napkins","paper napkins","tissues","kleenex tissues","facial tissues",
+  "trash bags","garbage bags","glad trash bags","hefty trash bags",
+  "aluminum foil","plastic wrap","saran wrap","ziploc bags","storage bags","sandwich bags",
+  "dish soap","dishwashing liquid","dawn dish soap","palmolive dish soap",
+  "laundry detergent","tide detergent","all detergent","fabric softener",
+  "cleaning spray","all purpose cleaner","clorox wipes","lysol wipes","disinfectant wipes",
+  "sponge","kitchen sponge","scrub brush",
+  "candles","scented candles","batteries","light bulbs"
 ] as const;
 
 const LABEL_MAP: Record<string, string> = {
@@ -106,10 +117,19 @@ const LABEL_MAP: Record<string, string> = {
   "uncle ben's rice": "Uncle Ben's rice",
   "minute rice": "Minute Rice",
   "barilla pasta": "Barilla pasta",
+  "barilla spaghetti": "Barilla spaghetti",
+  "barilla penne": "Barilla penne",
   "ronzoni pasta": "Ronzoni pasta",
   "de cecco pasta": "De Cecco pasta",
   "kraft mac and cheese": "Kraft Mac & Cheese",
   "quaker oats": "Quaker Oats",
+  "quaker oatmeal": "Quaker Oatmeal",
+  "quaker instant oatmeal": "Quaker Instant Oatmeal",
+  "quaker oatmeal cereal": "Quaker Oatmeal",
+  // Honey brands
+  "raw honey": "raw honey",
+  "organic honey": "organic honey",
+  "manuka honey": "Manuka honey",
   // Cereal brands
   "cheerios": "Cheerios",
   "honey nut cheerios": "Honey Nut Cheerios",
@@ -148,6 +168,8 @@ const LABEL_MAP: Record<string, string> = {
   "diet pepsi": "Diet Pepsi",
   "sprite": "Sprite",
   "7up": "7UP",
+  "7 up": "7UP",
+  "seven up": "7UP",
   "mountain dew": "Mountain Dew",
   "dr pepper": "Dr Pepper",
   "fanta": "Fanta",
@@ -158,6 +180,13 @@ const LABEL_MAP: Record<string, string> = {
   "monster energy": "Monster Energy",
   "gatorade": "Gatorade",
   "powerade": "Powerade",
+  // Water brands
+  "voss water": "Voss water",
+  "fiji water": "Fiji water",
+  "evian water": "Evian water",
+  "dasani water": "Dasani water",
+  "aquafina water": "Aquafina water",
+  "smart water": "Smartwater",
   // Jello
   "jello": "Jello",
   "jell-o": "Jell-O",
@@ -182,6 +211,28 @@ const LABEL_MAP: Record<string, string> = {
   // Sauce brands
   "prego sauce": "Prego sauce",
   "ragu sauce": "Ragú sauce",
+  // Household items
+  "paper towels": "paper towels",
+  "kitchen towels": "paper towels",
+  "paper towel roll": "paper towels",
+  "bounty paper towels": "Bounty paper towels",
+  "viva paper towels": "Viva paper towels",
+  "toilet paper": "toilet paper",
+  "toilet tissue": "toilet paper",
+  "charmin toilet paper": "Charmin toilet paper",
+  "scott toilet paper": "Scott toilet paper",
+  "kleenex tissues": "Kleenex tissues",
+  "facial tissues": "tissues",
+  "glad trash bags": "Glad trash bags",
+  "hefty trash bags": "Hefty trash bags",
+  "saran wrap": "plastic wrap",
+  "ziploc bags": "Ziploc bags",
+  "dawn dish soap": "Dawn dish soap",
+  "palmolive dish soap": "Palmolive dish soap",
+  "tide detergent": "Tide detergent",
+  "all detergent": "All detergent",
+  "clorox wipes": "Clorox wipes",
+  "lysol wipes": "Lysol wipes",
   // Generic fallbacks for common variations
   "jam": "jam",
   "jelly": "jelly",
@@ -202,7 +253,8 @@ function getBaseProductWord(label: string): string {
     'jam', 'jelly', 'butter', 'milk', 'yogurt', 'cheese', 'bread', 'rice', 'pasta', 
     'cereal', 'eggs', 'apple', 'banana', 'orange', 'tomato', 'potato', 'onion', 
     'carrot', 'pepper', 'soda', 'cola', 'juice', 'bagel', 'jello', 'gelatin',
-    'soup', 'beans', 'chips', 'crackers', 'cookies', 'noodles', 'sauce'
+    'soup', 'beans', 'chips', 'crackers', 'cookies', 'noodles', 'sauce',
+    'water', 'honey', 'oatmeal', 'towels', 'tissues', 'detergent', 'soap', 'wipes'
   ];
   
   for (const word of words) {
@@ -304,7 +356,7 @@ export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<strin
     const foodNouns = new Set([
       "apple","banana","orange","lemon","lime","grapes","pear","peach","plum","strawberry","blueberry","raspberry",
       "tomato","potato","carrot","onion","garlic","cucumber","broccoli","cauliflower","lettuce","spinach","kale","cabbage","pepper",
-      "bread","bagel","tortilla","pita","rice","pasta","spaghetti","penne","macaroni","linguine","fettuccine","rigatoni","rotini","noodles","oats","cereal","flour",
+      "bread","bagel","tortilla","pita","rice","pasta","spaghetti","penne","macaroni","linguine","fettuccine","rigatoni","rotini","noodles","oats","oatmeal","cereal","flour",
       "milk","yogurt","cheese","butter","cream","eggs",
       "beans","chickpeas","lentils","tomato sauce","canned tomatoes","tuna","salmon","sardines","corn","peas","broth",
       "chicken","beef","pork","ham","bacon","sausage","tofu",
@@ -314,6 +366,10 @@ export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<strin
       "jello","gelatin","pudding",
       "soup","salsa","sauce",
       "ice cream","frozen pizza",
+      // Household items
+      "towel","towels","paper towels","tissue","tissues","toilet paper","napkins",
+      "soap","detergent","sponge","foil","wrap","bags",
+      "candle","candles","batteries","bulb","bulbs",
     ]);
 
     const labels = (Array.isArray(result) ? result : [])
