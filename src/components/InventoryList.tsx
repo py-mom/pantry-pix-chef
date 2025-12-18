@@ -59,11 +59,17 @@ const InventoryList = ({
   const [shoppingFilter, setShoppingFilter] = useState<GroceryCategory | "all">("all");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
-  const commonStaples = [
+  const defaultStaples = [
     "milk", "bread", "eggs", "bananas", "chicken", "rice", "pasta", "onions",
     "tomatoes", "cheese", "yogurt", "butter", "olive oil", "salt", "pepper",
     "garlic", "carrots", "apples", "oats", "peanut butter"
   ];
+
+  // Merge default staples with user's weekly staples for Quick Add options
+  const commonStaples = useMemo(() => {
+    const allStaples = new Set([...defaultStaples, ...weeklyStaples]);
+    return Array.from(allStaples).sort();
+  }, [weeklyStaples]);
 
   const handleAddItem = () => {
     if (newItem.trim()) {
