@@ -13,7 +13,11 @@ let imagenetPromise: Promise<any> | null = null;
 // Extended vocabulary for specific products, brands, and detailed descriptions
 const CANDIDATE_LABELS = [
   // Specific jams and spreads
-  "strawberry jam","grape jam","raspberry jam","blueberry jam","apricot jam","peach jam","orange marmalade","peanut butter","almond butter","nutella","honey","raw honey","organic honey","manuka honey",
+  "strawberry jam","grape jam","raspberry jam","blueberry jam","apricot jam","peach jam","orange marmalade","peanut butter","almond butter","nutella",
+  // Honey varieties and brands
+  "honey","honey bottle","honey jar","honey bear","honey bear bottle","clover honey","raw honey","organic honey","manuka honey","raw manuka honey",
+  "lavender honey","wildflower honey","pure honey","raw unfiltered honey","local honey",
+  "good & gather honey","kirkland honey","kirkland organic honey","golden blossom honey","nature nate's honey","gefen honey",
   // Branded products (common brands)
   "jif peanut butter","skippy peanut butter","welch's grape jelly","smuckers jam","kraft peanut butter","skippy natural","adams peanut butter",
   // Produce with varieties
@@ -146,9 +150,27 @@ const LABEL_MAP: Record<string, string> = {
   "quaker old fashioned oats": "Quaker Old Fashioned Oats",
   "quaker instant oatmeal": "Quaker Instant Oatmeal",
   // Honey brands
+  "honey": "honey",
+  "honey bottle": "honey",
+  "honey jar": "honey",
+  "honey bear": "honey",
+  "honey bear bottle": "honey",
+  "clover honey": "clover honey",
   "raw honey": "raw honey",
   "organic honey": "organic honey",
   "manuka honey": "Manuka honey",
+  "raw manuka honey": "Manuka honey",
+  "lavender honey": "lavender honey",
+  "wildflower honey": "wildflower honey",
+  "pure honey": "honey",
+  "raw unfiltered honey": "raw honey",
+  "local honey": "honey",
+  "good & gather honey": "Good & Gather honey",
+  "kirkland honey": "Kirkland honey",
+  "kirkland organic honey": "Kirkland Organic honey",
+  "golden blossom honey": "Golden Blossom honey",
+  "nature nate's honey": "Nature Nate's honey",
+  "gefen honey": "Gefen honey",
   // Cereal brands - Cheerios
   "cheerios": "Cheerios",
   "cheerios cereal": "Cheerios",
