@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Camera, List, ChefHat, Settings, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useInventorySync } from "@/hooks/useInventorySync";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { GroceryCategory } from "@/types/inventory";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("camera");
@@ -43,17 +44,26 @@ const Index = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    // Load weekly staples from localStorage (keeping local for now)
-    const savedWeeklyStaples = localStorage.getItem("pantry-weekly-staples");
-    if (savedWeeklyStaples) {
-      setWeeklyStaples(JSON.parse(savedWeeklyStaples));
+  // Load weekly staples from Supabase
+  const loadWeeklyStaples = useCallback(async () => {
+    if (!user?.id) return;
+    
+    const { data, error } = await supabase
+      .from('weekly_staples')
+      .select('name')
+      .eq('user_id', user.id);
+    
+    if (error) {
+      console.error('Error loading weekly staples:', error);
+      return;
     }
-  }, []);
+    
+    setWeeklyStaples(data?.map(s => s.name) || []);
+  }, [user?.id]);
 
-  const saveToStorage = (key: string, data: any) => {
-    localStorage.setItem(key, JSON.stringify(data));
-  };
+  useEffect(() => {
+    loadWeeklyStaples();
+  }, [loadWeeklyStaples]);
 
   const handleNewInventory = async (items: string[]) => {
     const result = await replaceInventory(items);
@@ -91,22 +101,50 @@ const Index = () => {
     setActiveTab("inventory");
   };
 
-  const addWeeklyStaple = (item: string) => {
-    if (!weeklyStaples.includes(item)) {
-      const newStaples = [...weeklyStaples, item];
-      setWeeklyStaples(newStaples);
-      saveToStorage("pantry-weekly-staples", newStaples);
+  const addWeeklyStaple = async (item: string) => {
+    if (!user?.id || weeklyStaples.includes(item)) return;
+    
+    const { error } = await supabase
+      .from('weekly_staples')
+      .insert({ user_id: user.id, name: item });
+    
+    if (error) {
+      console.error('Error adding weekly staple:', error);
       toast({
-        title: "Staple Added!",
-        description: `${item} is now a weekly staple.`,
+        title: "Error",
+        description: "Failed to add weekly staple.",
+        variant: "destructive",
       });
+      return;
     }
+    
+    setWeeklyStaples([...weeklyStaples, item]);
+    toast({
+      title: "Staple Added!",
+      description: `${item} is now a weekly staple.`,
+    });
   };
 
-  const removeWeeklyStaple = (item: string) => {
-    const newStaples = weeklyStaples.filter(staple => staple !== item);
-    setWeeklyStaples(newStaples);
-    saveToStorage("pantry-weekly-staples", newStaples);
+  const removeWeeklyStaple = async (item: string) => {
+    if (!user?.id) return;
+    
+    const { error } = await supabase
+      .from('weekly_staples')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('name', item);
+    
+    if (error) {
+      console.error('Error removing weekly staple:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove weekly staple.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setWeeklyStaples(weeklyStaples.filter(staple => staple !== item));
     toast({
       title: "Staple Removed",
       description: `${item} is no longer a weekly staple.`,
