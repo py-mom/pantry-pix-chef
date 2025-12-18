@@ -32,15 +32,34 @@ const CANDIDATE_LABELS = [
   // Bakery & grains with brands
   "bread","white bread","wheat bread","whole grain bread","sourdough bread","rye bread","pumpernickel bread",
   "wonder bread","pepperidge farm bread","dave's killer bread","ezekiel bread",
-  "bagel","everything bagel","sesame bagel","plain bagel","cinnamon raisin bagel",
+  "bagel","plain bagel","everything bagel","sesame bagel","cinnamon raisin bagel","onion bagel","poppy seed bagel","blueberry bagel","asiago bagel","thomas bagel",
   "tortilla","flour tortilla","corn tortilla","whole wheat tortilla","mission tortilla","old el paso tortilla",
   "pita","pita bread","naan","flatbread",
   "rice","white rice","brown rice","jasmine rice","basmati rice","wild rice","uncle ben's rice","minute rice",
-  "pasta","spaghetti","penne pasta","macaroni","linguine","fettuccine","angel hair pasta","barilla pasta","kraft mac and cheese",
-  "noodles","egg noodles","ramen noodles","rice noodles","instant noodles",
+  // Pasta varieties
+  "pasta","spaghetti","penne","penne pasta","macaroni","linguine","fettuccine","angel hair pasta","rigatoni","rotini","farfalle","bow tie pasta","lasagna noodles","orzo","ziti","shells pasta","elbow macaroni",
+  "barilla pasta","kraft mac and cheese","ronzoni pasta","de cecco pasta",
+  "noodles","egg noodles","ramen noodles","rice noodles","instant noodles","udon noodles","soba noodles","lo mein noodles",
   "oats","rolled oats","steel cut oats","instant oats","quaker oats","oatmeal",
-  "cereal","cheerios","corn flakes","frosted flakes","lucky charms","fruit loops","granola","kellogg's cereal",
+  // Cereal varieties and brands
+  "cereal","cheerios","honey nut cheerios","frosted cheerios","apple cinnamon cheerios",
+  "corn flakes","frosted flakes","kellogg's corn flakes",
+  "lucky charms","fruit loops","froot loops","cocoa puffs","trix cereal",
+  "cinnamon toast crunch","honey bunches of oats","raisin bran","frosted mini wheats","grape nuts",
+  "special k","rice krispies","chex cereal","life cereal","cap'n crunch","captain crunch",
+  "granola","granola cereal","muesli","oatmeal cereal","hot cereal","cold cereal",
+  "kellogg's cereal","general mills cereal","post cereal","quaker cereal",
   "flour","all purpose flour","bread flour","whole wheat flour","king arthur flour",
+  // Beverages - Soda and drinks
+  "soda","cola","coca cola","coke","pepsi","sprite","7up","mountain dew","dr pepper","fanta","root beer",
+  "ginger ale","club soda","tonic water","sparkling water","seltzer","la croix",
+  "soda can","soda bottle","2 liter soda","diet soda","diet coke","diet pepsi","zero sugar soda",
+  "juice","orange juice","apple juice","grape juice","cranberry juice","tomato juice","lemonade",
+  "iced tea","sweet tea","green tea","energy drink","red bull","monster energy","gatorade","powerade",
+  "water bottle","bottled water","spring water","mineral water",
+  // Jello and desserts
+  "jello","jell-o","gelatin","gelatin dessert","pudding","pudding cup","instant pudding","jello cups","fruit jello","jello mix",
+  "cool whip","whipped cream","whipped topping",
   // Dairy & eggs with brands
   "milk","whole milk","2% milk","skim milk","almond milk","soy milk","oat milk","coconut milk",
   "organic milk","lactaid milk","horizon organic milk","silk almond milk","oatly oat milk",
@@ -49,7 +68,25 @@ const CANDIDATE_LABELS = [
   "kraft cheese","tillamook cheese","string cheese","cream cheese","philadelphia cream cheese",
   "butter","salted butter","unsalted butter","organic butter","land o lakes butter","kerrygold butter",
   "cream","heavy cream","half and half","whipping cream","sour cream","cottage cheese",
-  "eggs","large eggs","organic eggs","free range eggs","brown eggs","white eggs","cage free eggs"
+  "eggs","large eggs","organic eggs","free range eggs","brown eggs","white eggs","cage free eggs",
+  // Snacks and pantry items
+  "chips","potato chips","tortilla chips","doritos","lays chips","pringles","cheetos",
+  "crackers","saltine crackers","graham crackers","ritz crackers","cheese crackers",
+  "cookies","oreos","chocolate chip cookies","sandwich cookies",
+  "popcorn","microwave popcorn","kettle corn",
+  "pretzels","nuts","mixed nuts","peanuts","almonds","cashews","walnuts",
+  // Canned goods
+  "canned soup","soup can","chicken soup","tomato soup","campbell's soup",
+  "canned beans","black beans","kidney beans","pinto beans","chickpeas","garbanzo beans",
+  "canned vegetables","canned corn","canned peas","canned green beans",
+  "canned fruit","fruit cocktail","peaches in syrup","pineapple chunks",
+  "canned tuna","canned salmon","sardines",
+  "tomato sauce","pasta sauce","marinara sauce","spaghetti sauce","prego sauce","ragu sauce",
+  "salsa","picante sauce","taco sauce","enchilada sauce",
+  // Condiments
+  "ketchup","mustard","mayonnaise","ranch dressing","salad dressing","bbq sauce","hot sauce","sriracha","soy sauce","worcestershire sauce",
+  // Frozen foods
+  "ice cream","frozen pizza","frozen vegetables","frozen fruit","frozen waffles","frozen dinner","tv dinner"
 ] as const;
 
 const LABEL_MAP: Record<string, string> = {
@@ -69,36 +106,104 @@ const LABEL_MAP: Record<string, string> = {
   "uncle ben's rice": "Uncle Ben's rice",
   "minute rice": "Minute Rice",
   "barilla pasta": "Barilla pasta",
+  "ronzoni pasta": "Ronzoni pasta",
+  "de cecco pasta": "De Cecco pasta",
   "kraft mac and cheese": "Kraft Mac & Cheese",
   "quaker oats": "Quaker Oats",
+  // Cereal brands
   "cheerios": "Cheerios",
+  "honey nut cheerios": "Honey Nut Cheerios",
+  "frosted cheerios": "Frosted Cheerios",
+  "apple cinnamon cheerios": "Apple Cinnamon Cheerios",
   "frosted flakes": "Frosted Flakes",
+  "corn flakes": "Corn Flakes",
+  "kellogg's corn flakes": "Kellogg's Corn Flakes",
   "lucky charms": "Lucky Charms",
-  "fruit loops": "Fruit Loops",
+  "fruit loops": "Froot Loops",
+  "froot loops": "Froot Loops",
+  "cocoa puffs": "Cocoa Puffs",
+  "trix cereal": "Trix",
+  "cinnamon toast crunch": "Cinnamon Toast Crunch",
+  "honey bunches of oats": "Honey Bunches of Oats",
+  "raisin bran": "Raisin Bran",
+  "frosted mini wheats": "Frosted Mini Wheats",
+  "grape nuts": "Grape Nuts",
+  "special k": "Special K",
+  "rice krispies": "Rice Krispies",
+  "chex cereal": "Chex",
+  "life cereal": "Life Cereal",
+  "cap'n crunch": "Cap'n Crunch",
+  "captain crunch": "Cap'n Crunch",
   "kellogg's cereal": "Kellogg's cereal",
-  "horizon organic milk": "Horizon Organic milk",
-  "silk almond milk": "Silk almond milk",
-  "oatly oat milk": "Oatly oat milk",
-  "chobani yogurt": "Chobani yogurt",
-  "dannon yogurt": "Dannon yogurt",
-  "yoplait yogurt": "Yoplait yogurt",
-  "kraft cheese": "Kraft cheese",
-  "tillamook cheese": "Tillamook cheese",
-  "philadelphia cream cheese": "Philadelphia cream cheese",
-  "land o lakes butter": "Land O'Lakes butter",
-  "kerrygold butter": "Kerrygold butter",
+  "general mills cereal": "General Mills cereal",
+  "post cereal": "Post cereal",
+  "quaker cereal": "Quaker cereal",
+  "oatmeal cereal": "oatmeal",
+  "granola cereal": "granola",
+  // Soda brands
+  "coca cola": "Coca-Cola",
+  "coke": "Coca-Cola",
+  "diet coke": "Diet Coke",
+  "pepsi": "Pepsi",
+  "diet pepsi": "Diet Pepsi",
+  "sprite": "Sprite",
+  "7up": "7UP",
+  "mountain dew": "Mountain Dew",
+  "dr pepper": "Dr Pepper",
+  "fanta": "Fanta",
+  "root beer": "root beer",
+  "ginger ale": "ginger ale",
+  "la croix": "LaCroix",
+  "red bull": "Red Bull",
+  "monster energy": "Monster Energy",
+  "gatorade": "Gatorade",
+  "powerade": "Powerade",
+  // Jello
+  "jello": "Jello",
+  "jell-o": "Jell-O",
+  "gelatin dessert": "Jello",
+  "jello cups": "Jello cups",
+  "jello mix": "Jello mix",
+  "cool whip": "Cool Whip",
+  // Bagels
+  "thomas bagel": "Thomas' Bagel",
+  "everything bagel": "everything bagel",
+  "plain bagel": "plain bagel",
+  "sesame bagel": "sesame bagel",
+  "cinnamon raisin bagel": "cinnamon raisin bagel",
+  // Pasta
+  "penne pasta": "penne",
+  "bow tie pasta": "farfalle",
+  "angel hair pasta": "angel hair",
+  "shells pasta": "pasta shells",
+  "elbow macaroni": "elbow macaroni",
+  // Soup brands
+  "campbell's soup": "Campbell's soup",
+  // Sauce brands
+  "prego sauce": "Prego sauce",
+  "ragu sauce": "Ragú sauce",
   // Generic fallbacks for common variations
   "jam": "jam",
   "jelly": "jelly",
   "preserves": "preserves",
-  "spread": "spread"
+  "spread": "spread",
+  "soda can": "soda",
+  "soda bottle": "soda",
+  "2 liter soda": "soda",
+  "diet soda": "diet soda",
+  "zero sugar soda": "zero sugar soda"
 };
 
 // Extract base product word to deduplicate similar items (e.g., "strawberry jam" -> "jam")
 function getBaseProductWord(label: string): string {
   const words = label.toLowerCase().split(' ');
   // Common product category words that indicate the same product type
-  const categoryWords = ['jam', 'jelly', 'butter', 'milk', 'yogurt', 'cheese', 'bread', 'rice', 'pasta', 'cereal', 'eggs', 'apple', 'banana', 'orange', 'tomato', 'potato', 'onion', 'carrot', 'pepper'];
+  const categoryWords = [
+    'jam', 'jelly', 'butter', 'milk', 'yogurt', 'cheese', 'bread', 'rice', 'pasta', 
+    'cereal', 'eggs', 'apple', 'banana', 'orange', 'tomato', 'potato', 'onion', 
+    'carrot', 'pepper', 'soda', 'cola', 'juice', 'bagel', 'jello', 'gelatin',
+    'soup', 'beans', 'chips', 'crackers', 'cookies', 'noodles', 'sauce'
+  ];
   
   for (const word of words) {
     if (categoryWords.includes(word)) {
@@ -199,12 +304,16 @@ export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<strin
     const foodNouns = new Set([
       "apple","banana","orange","lemon","lime","grapes","pear","peach","plum","strawberry","blueberry","raspberry",
       "tomato","potato","carrot","onion","garlic","cucumber","broccoli","cauliflower","lettuce","spinach","kale","cabbage","pepper",
-      "bread","bagel","tortilla","pita","rice","pasta","noodles","oats","cereal","flour",
+      "bread","bagel","tortilla","pita","rice","pasta","spaghetti","penne","macaroni","linguine","fettuccine","rigatoni","rotini","noodles","oats","cereal","flour",
       "milk","yogurt","cheese","butter","cream","eggs",
       "beans","chickpeas","lentils","tomato sauce","canned tomatoes","tuna","salmon","sardines","corn","peas","broth",
       "chicken","beef","pork","ham","bacon","sausage","tofu",
       "olive oil","oil","salt","pepper","sugar","honey","vinegar","soy sauce","ketchup","mustard","mayonnaise","peanut butter","jam",
-      "chocolate","coffee","tea","nuts","almonds","peanuts","walnuts","cashews","chips",
+      "chocolate","coffee","tea","nuts","almonds","peanuts","walnuts","cashews","chips","crackers","cookies","pretzels",
+      "soda","cola","juice","water","gatorade","energy drink",
+      "jello","gelatin","pudding",
+      "soup","salsa","sauce",
+      "ice cream","frozen pizza",
     ]);
 
     const labels = (Array.isArray(result) ? result : [])
