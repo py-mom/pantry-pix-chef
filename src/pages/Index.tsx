@@ -116,21 +116,12 @@ const Index = () => {
   const addAllStaplesToShoppingList = async () => {
     if (weeklyStaples.length === 0) return;
     
-    const currentShoppingNames = shoppingList.map(item => item.name.toLowerCase());
-    const itemsToAdd = weeklyStaples.filter(staple => 
-      !currentShoppingNames.some(listItem => 
-        listItem.includes(staple.toLowerCase()) ||
-        staple.toLowerCase().includes(listItem)
-      )
-    );
+    const addedCount = await addMissingItemsToShoppingList(weeklyStaples);
     
-    if (itemsToAdd.length > 0) {
-      for (const item of itemsToAdd) {
-        await addToShoppingList(item, 1);
-      }
+    if (addedCount && addedCount > 0) {
       toast({
         title: "Weekly Staples Added!",
-        description: `Added ${itemsToAdd.length} staples to your shopping list.`,
+        description: `Added ${addedCount} staples to your shopping list.`,
       });
     } else {
       toast({
