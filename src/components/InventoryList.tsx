@@ -247,14 +247,12 @@ const InventoryList = ({
                       <ShoppingCart className="h-3 w-3 mr-1" />Add All to Shopping List
                     </Button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
                     {weeklyStaples.map((staple, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-accent/10 rounded-lg">
-                        <span className="text-sm font-medium">{staple}</span>
-                        <Button onClick={() => onRemoveWeeklyStaple(staple)} size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      <Button key={index} size="sm" variant="secondary" onClick={() => onRemoveWeeklyStaple(staple)} className="h-8 text-xs group">
+                        {staple}
+                        <X className="h-3 w-3 ml-1 opacity-50 group-hover:opacity-100 group-hover:text-destructive" />
+                      </Button>
                     ))}
                   </div>
                 </div>
