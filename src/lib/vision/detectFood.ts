@@ -889,34 +889,101 @@ function normalize(label: string): string {
   return s;
 }
 
+// Check if WebGPU is available
+async function isWebGPUAvailable(): Promise<boolean> {
+  try {
+    // @ts-ignore - WebGPU types may not be available
+    if (typeof navigator === 'undefined' || !navigator.gpu) return false;
+    // @ts-ignore
+    const adapter = await navigator.gpu.requestAdapter();
+    return adapter !== null;
+  } catch {
+    return false;
+  }
+}
+
 async function getZeroShot() {
   if (!zslPromise) {
-    zslPromise = pipeline(
-      "zero-shot-image-classification",
-      // CLIP model available for browsers
-      "Xenova/clip-vit-base-patch16",
-      { device: "webgpu" }
-    ).catch(() => pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch16"));
+    zslPromise = (async () => {
+      const useWebGPU = await isWebGPUAvailable();
+      try {
+        return await pipeline(
+          "zero-shot-image-classification",
+          "Xenova/clip-vit-base-patch16",
+          useWebGPU ? { device: "webgpu" } : {}
+        );
+      } catch (err) {
+        console.warn("WebGPU pipeline failed, using CPU fallback:", err);
+        return await pipeline(
+          "zero-shot-image-classification",
+          "Xenova/clip-vit-base-patch16"
+        );
+      }
+    })();
   }
   return zslPromise;
 }
 
 async function getImagenet() {
   if (!imagenetPromise) {
-    imagenetPromise = pipeline(
-      "image-classification",
-      "onnx-community/mobilenetv4_conv_small.e2400_r224_in1k",
-      { device: "webgpu" }
-    ).catch(() => pipeline("image-classification", "onnx-community/mobilenetv4_conv_small.e2400_r224_in1k"));
+    imagenetPromise = (async () => {
+      const useWebGPU = await isWebGPUAvailable();
+      try {
+        return await pipeline(
+          "image-classification",
+          "onnx-community/mobilenetv4_conv_small.e2400_r224_in1k",
+          useWebGPU ? { device: "webgpu" } : {}
+        );
+      } catch (err) {
+        console.warn("WebGPU ImageNet failed, using CPU fallback:", err);
+        return await pipeline(
+          "image-classification",
+          "onnx-community/mobilenetv4_conv_small.e2400_r224_in1k"
+        );
+      }
+    })();
   }
   return imagenetPromise;
 }
 
+// Core labels for classification (smaller set for better performance)
+const CORE_LABELS = [
+  // Dairy essentials
+  "milk", "yogurt", "cheese", "butter", "eggs", "cream", "sour cream", "cottage cheese",
+  // Produce
+  "apple", "banana", "orange", "lemon", "grapes", "strawberry", "blueberry", "tomato", "potato", "carrot", "onion", "garlic", "cucumber", "broccoli", "lettuce", "spinach", "bell pepper",
+  // Bakery
+  "bread", "bagel", "tortilla", "baguette",
+  // Grains
+  "rice", "pasta", "cereal", "oatmeal",
+  // Spreads
+  "jam", "jelly", "peanut butter", "honey",
+  // Beverages
+  "soda", "juice", "water bottle",
+  // Canned goods
+  "soup", "beans", "canned vegetables", "canned fruit", "tomato sauce",
+  // Snacks
+  "chips", "crackers", "cookies", "pretzels", "nuts",
+  // Household
+  "paper towels", "toilet paper", "dish soap", "detergent",
+  // Other
+  "jello", "ice cream"
+] as const;
+
 export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<string[]> {
-  // 1) Try zero-shot with constrained food labels
+  // Validate input
+  if (!dataUrl || typeof dataUrl !== 'string') {
+    console.error('Invalid image data provided');
+    return [];
+  }
+
+  // 1) Try zero-shot with smaller core labels for performance
   try {
+    console.log('Loading zero-shot classifier...');
     const zsl = await getZeroShot();
-    const outputs = await zsl(dataUrl, CANDIDATE_LABELS as unknown as string[], {
+    console.log('Running classification...');
+    
+    const outputs = await zsl(dataUrl, CORE_LABELS as unknown as string[], {
       hypothesis_template: "a photo of {}",
     });
 
@@ -925,8 +992,10 @@ export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<strin
       .filter((r: any) => typeof r?.label === "string" && typeof r?.score === "number")
       .sort((a: any, b: any) => b.score - a.score);
 
+    console.log('Classification results:', allResults.slice(0, 5));
+
     // Take top result and any significantly different items
-    // Avoid duplicate variations of the same product (e.g., multiple jam types for one jar)
+    // Avoid duplicate variations of the same product
     const seen = new Set<string>();
     const filtered: string[] = [];
     
