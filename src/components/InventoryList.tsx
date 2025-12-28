@@ -53,6 +53,8 @@ const InventoryList = ({
   const [staplesOpen, setStaplesOpen] = useState(false);
   const [editingShoppingId, setEditingShoppingId] = useState<string | null>(null);
   const [editingShoppingValue, setEditingShoppingValue] = useState("");
+  const [editingInventoryId, setEditingInventoryId] = useState<string | null>(null);
+  const [editingInventoryValue, setEditingInventoryValue] = useState("");
   const [inventorySortBy, setInventorySortBy] = useState<SortOption>("name");
   const [shoppingSortBy, setShoppingSortBy] = useState<SortOption>("category");
   const [inventoryFilter, setInventoryFilter] = useState<GroceryCategory | "all">("all");
@@ -207,6 +209,24 @@ const InventoryList = ({
     else if (e.key === 'Escape') { setEditingShoppingId(null); setEditingShoppingValue(""); }
   };
 
+  const startEditingInventory = (id: string, currentName: string) => {
+    setEditingInventoryId(id);
+    setEditingInventoryValue(currentName);
+  };
+
+  const saveInventoryEdit = () => {
+    if (editingInventoryId && editingInventoryValue.trim()) {
+      onUpdateInventoryItem(editingInventoryId, { name: editingInventoryValue.trim() });
+    }
+    setEditingInventoryId(null);
+    setEditingInventoryValue("");
+  };
+
+  const handleInventoryEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') saveInventoryEdit();
+    else if (e.key === 'Escape') { setEditingInventoryId(null); setEditingInventoryValue(""); }
+  };
+
   return (
     <div className="space-y-6">
       {/* Weekly Staples Section */}
@@ -309,8 +329,15 @@ const InventoryList = ({
                   const isInShoppingList = shoppingList.some(listItem => listItem.name.toLowerCase() === item.name.toLowerCase());
                   return (
                     <div key={item.id || item.name} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="font-medium">{item.name}</span>
+                      <div className="flex items-center gap-3 flex-wrap flex-1">
+                        {editingInventoryId === item.id ? (
+                          <Input value={editingInventoryValue} onChange={(e) => setEditingInventoryValue(e.target.value)} onKeyDown={handleInventoryEditKeyPress} onBlur={saveInventoryEdit} autoFocus className="h-8 flex-1 max-w-48" />
+                        ) : (
+                          <>
+                            <span className="font-medium">{item.name}</span>
+                            <Button onClick={() => item.id && startEditingInventory(item.id, item.name)} size="icon" variant="ghost" className="h-6 w-6 opacity-50 hover:opacity-100"><Pencil className="h-3 w-3" /></Button>
+                          </>
+                        )}
                         <Badge variant="secondary" className="text-xs">{getCategoryLabel(item.category)}</Badge>
                         <div className="flex items-center gap-1">
                           <Button onClick={() => item.id && onUpdateInventoryItem(item.id, { quantity: Math.max(1, item.quantity - 1) })} size="icon" variant="ghost" className="h-6 w-6"><Minus className="h-3 w-3" /></Button>
