@@ -442,31 +442,37 @@ const InventoryList = ({
               <div className="space-y-2">
                 {sortedShopping.map((item) => {
                   const storeHint = getCategoryStore(item.category);
+                  const isBought = item.bought;
                   return (
-                    <div key={item.id || item.name} className="flex items-center justify-between p-3 bg-card border rounded-lg hover:shadow-soft transition-all">
+                    <div key={item.id || item.name} className={`flex items-center justify-between p-3 border rounded-lg transition-all ${isBought ? 'bg-muted/50 opacity-60' : 'bg-card hover:shadow-soft'}`}>
                       <div className="flex items-center gap-3 flex-1 flex-wrap">
                         {editingShoppingId === item.id ? (
                           <Input value={editingShoppingValue} onChange={(e) => setEditingShoppingValue(e.target.value)} onKeyDown={handleEditKeyPress} onBlur={saveShoppingEdit} autoFocus className="h-8 flex-1" />
                         ) : (
                           <>
-                            <span className="font-medium">{item.name}</span>
-                            <Button onClick={() => item.id && startEditingShopping(item.id, item.name)} size="icon" variant="ghost" className="h-6 w-6 opacity-50 hover:opacity-100"><Pencil className="h-3 w-3" /></Button>
+                            <span className={`font-medium ${isBought ? 'line-through text-muted-foreground' : ''}`}>{item.name}</span>
+                            {!isBought && <Button onClick={() => item.id && startEditingShopping(item.id, item.name)} size="icon" variant="ghost" className="h-6 w-6 opacity-50 hover:opacity-100"><Pencil className="h-3 w-3" /></Button>}
                           </>
                         )}
-                        <Badge variant="secondary" className="text-xs">{getCategoryLabel(item.category)}</Badge>
-                        {storeHint && <Badge variant="outline" className="text-xs bg-accent/10"><Store className="h-3 w-3 mr-1" />{storeHint}</Badge>}
-                        <div className="flex items-center gap-1">
-                          <Button onClick={() => item.id && onUpdateShoppingItem(item.id, { quantity: Math.max(1, item.quantity - 1) })} size="icon" variant="ghost" className="h-6 w-6"><Minus className="h-3 w-3" /></Button>
-                          <Badge variant="outline" className="min-w-[2rem] justify-center">{item.quantity}</Badge>
-                          <Button onClick={() => item.id && onUpdateShoppingItem(item.id, { quantity: item.quantity + 1 })} size="icon" variant="ghost" className="h-6 w-6"><Plus className="h-3 w-3" /></Button>
-                        </div>
+                        <Badge variant="secondary" className={`text-xs ${isBought ? 'opacity-50' : ''}`}>{getCategoryLabel(item.category)}</Badge>
+                        {storeHint && <Badge variant="outline" className={`text-xs bg-accent/10 ${isBought ? 'opacity-50' : ''}`}><Store className="h-3 w-3 mr-1" />{storeHint}</Badge>}
+                        {!isBought && (
+                          <div className="flex items-center gap-1">
+                            <Button onClick={() => item.id && onUpdateShoppingItem(item.id, { quantity: Math.max(1, item.quantity - 1) })} size="icon" variant="ghost" className="h-6 w-6"><Minus className="h-3 w-3" /></Button>
+                            <Badge variant="outline" className="min-w-[2rem] justify-center">{item.quantity}</Badge>
+                            <Button onClick={() => item.id && onUpdateShoppingItem(item.id, { quantity: item.quantity + 1 })} size="icon" variant="ghost" className="h-6 w-6"><Plus className="h-3 w-3" /></Button>
+                          </div>
+                        )}
+                        {isBought && <Badge variant="outline" className="min-w-[2rem] justify-center opacity-50">{item.quantity}</Badge>}
                       </div>
                       <div className="flex gap-2 items-center">
-                        <Select value={item.category || "other"} onValueChange={(v) => item.id && onUpdateShoppingItem(item.id, { category: v as GroceryCategory })}>
-                          <SelectTrigger className="w-24 h-7 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>{GROCERY_CATEGORIES.map(cat => <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <Button onClick={() => item.id && onMarkAsBought(item.id)} size="icon" variant="ghost" className="h-8 w-8 text-primary hover:text-primary-foreground hover:bg-primary"><Check className="h-4 w-4" /></Button>
+                        {!isBought && (
+                          <Select value={item.category || "other"} onValueChange={(v) => item.id && onUpdateShoppingItem(item.id, { category: v as GroceryCategory })}>
+                            <SelectTrigger className="w-24 h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>{GROCERY_CATEGORIES.map(cat => <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        )}
+                        <Button onClick={() => item.id && onMarkAsBought(item.id)} size="icon" variant="ghost" className={`h-8 w-8 ${isBought ? 'text-primary bg-primary/20' : 'text-primary hover:text-primary-foreground hover:bg-primary'}`}><Check className="h-4 w-4" /></Button>
                         <Button onClick={() => item.id && onRemoveFromShoppingList(item.id)} size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive-foreground hover:bg-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </div>
