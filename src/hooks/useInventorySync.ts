@@ -42,7 +42,7 @@ export const useInventorySync = (userId: string | undefined) => {
       .from("shopping_list_items")
       .select("*")
       .eq("user_id", userId)
-      .eq("bought", false)
+      .order("bought", { ascending: true })
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -260,12 +260,34 @@ export const useInventorySync = (userId: string | undefined) => {
     setShoppingList(shoppingList.filter((item) => item.id !== id));
   };
 
-  // Mark as bought (delete from shopping list)
+  // Toggle bought status
   const markAsBought = async (id: string) => {
-    await removeFromShoppingList(id);
+    if (!userId) return;
+    
+    const item = shoppingList.find(i => i.id === id);
+    if (!item) return;
+    
+    const newBoughtStatus = !item.bought;
+    
+    const { error } = await supabase
+      .from("shopping_list_items")
+      .update({ bought: newBoughtStatus })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error toggling bought status:", error);
+      return;
+    }
+
+    setShoppingList(
+      shoppingList.map((i) =>
+        i.id === id ? { ...i, bought: newBoughtStatus } : i
+      )
+    );
+
     toast({
-      title: "Item purchased!",
-      description: "Item removed from shopping list.",
+      title: newBoughtStatus ? "Item checked off!" : "Item unchecked",
+      description: newBoughtStatus ? "Tap again to uncheck." : "Item restored to list.",
     });
   };
 
