@@ -275,7 +275,9 @@ const Index = () => {
               <CardContent>
                 <CameraCapture 
                   onItemsDetected={handleNewInventory}
-                  onAddToShoppingList={(item, qty, cat) => addToShoppingList(item, qty, cat)} 
+                  onAddToShoppingList={(item, qty, cat) => addToShoppingList(item, qty, cat)}
+                  shoppingList={shoppingList}
+                  onMarkAsBought={markAsBought}
                 />
               </CardContent>
             </Card>
