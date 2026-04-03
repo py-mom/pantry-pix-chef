@@ -238,18 +238,14 @@ const Index = () => {
           {/* Navigation */}
           <Card className="shadow-soft">
             <CardContent className="p-2">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="camera" className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  <span className="hidden sm:inline">Camera</span>
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="inventory" className="flex items-center gap-2">
                   <List className="h-4 w-4" />
                   <span className="hidden sm:inline">Inventory</span>
                 </TabsTrigger>
-                <TabsTrigger value="recipes" className="flex items-center gap-2">
-                  <ChefHat className="h-4 w-4" />
-                  <span className="hidden sm:inline">Recipes</span>
+                <TabsTrigger value="camera" className="flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  <span className="hidden sm:inline">Camera</span>
                 </TabsTrigger>
                 <TabsTrigger value="settings" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
