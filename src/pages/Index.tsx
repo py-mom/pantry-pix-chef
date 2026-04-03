@@ -201,7 +201,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <ChefHat className="h-8 w-8" />
+              <ShoppingBasket className="h-8 w-8" />
               <div>
                 <h1 className="text-2xl font-bold">Smart Pantry</h1>
                 <p className="text-primary-foreground/80">AI-powered inventory & recipes</p>
