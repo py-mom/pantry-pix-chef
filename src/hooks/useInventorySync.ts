@@ -302,16 +302,43 @@ export const useInventorySync = (userId: string | undefined) => {
   };
 
   // ── Bulk add missing items to shopping list (fuzzy dedup) ──────────────────
-  // Called after the user confirms the missing items modal in Index.tsx.
-  // Skips any item that fuzzy-matches something already on the shopping list.
+  // Called after the user confirms the missing items modal in Index.tsx,
+  // and by "Send all staples to shopping list".
+  //
+  // Logic:
+  //   - If item fuzzy-matches a BOUGHT item → uncheck it (bought = false)
+  //   - If item fuzzy-matches an UNBOUGHT item → skip (already active on list)
+  //   - If item doesn't exist at all → insert as new
   const addMissingItemsToShoppingList = async (items: string[]) => {
     if (!userId || items.length === 0) return 0;
 
+    let addedOrRestored = 0;
+
+    // ── Step 1: uncheck any bought items that match ────────────────────────
+    const boughtMatches = shoppingList.filter(
+      (existing) => existing.bought && items.some((item) => fuzzyMatch(existing.name, item))
+    );
+
+    for (const match of boughtMatches) {
+      const { error } = await supabase
+        .from("shopping_list_items")
+        .update({ bought: false })
+        .eq("id", match.id);
+
+      if (!error) {
+        setShoppingList((prev) =>
+          prev.map((i) => (i.id === match.id ? { ...i, bought: false } : i))
+        );
+        addedOrRestored++;
+      }
+    }
+
+    // ── Step 2: insert items that aren't on the list at all ───────────────
     const newItems = items.filter(
       (item) => !shoppingList.some((existing) => fuzzyMatch(existing.name, item))
     );
 
-    if (newItems.length === 0) return 0;
+    if (newItems.length === 0) return addedOrRestored;
 
     const { data, error } = await supabase
       .from("shopping_list_items")
@@ -327,7 +354,7 @@ export const useInventorySync = (userId: string | undefined) => {
 
     if (error) {
       console.error("Error adding missing items:", error);
-      return 0;
+      return addedOrRestored;
     }
 
     const newShoppingItems: ShoppingItem[] = data.map((item) => ({
@@ -340,7 +367,21 @@ export const useInventorySync = (userId: string | undefined) => {
 
     setShoppingList((prev) => [...newShoppingItems, ...prev]);
 
-    return newItems.length;
+    return addedOrRestored + newItems.length;
+  };
+
+  // 25002500 Reset shopping list (delete all items) 25002500250025002500250025002500250025002500250025002500250025002500250025002500250025002500250025002500250025002500250025002500250025002500
+  const resetShoppingList = async () => {
+    if (!userId) return false;
+    const { error } = await supabase
+      .from("shopping_list_items")
+      .delete()
+      .eq("user_id", userId);
+    if (error) { console.error("Error resetting shopping list:", error); return false; }
+    setShoppingList([]);
+    return true;
+  };
+
   };
 
   // ── replaceInventory: DEPRECATED ───────────────────────────────────────────
@@ -404,6 +445,7 @@ export const useInventorySync = (userId: string | undefined) => {
     markAsBought,
     addMissingItemsToShoppingList,
     replaceInventory, // deprecated but kept for safety
+    resetShoppingList,
     refetch: () => Promise.all([fetchInventory(), fetchShoppingList()]),
   };
 };
