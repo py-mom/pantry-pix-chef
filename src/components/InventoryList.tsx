@@ -307,6 +307,26 @@ const InventoryList = ({
                 <Star className="h-5 w-5 text-accent" />
                 Weekly Staples
                 {weeklyStaples.length > 0 && <Badge variant="outline" className="ml-auto mr-2">{weeklyStaples.length} items</Badge>}
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7 ml-1"
+                  disabled={photoLoading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    photoInputRef.current?.click();
+                  }}
+                >
+                  {photoLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                </Button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handlePhotoCapture}
+                />
                 {staplesOpen ? <ChevronDown className="h-4 w-4 ml-auto" /> : <ChevronRight className="h-4 w-4 ml-auto" />}
               </CardTitle>
               <CardDescription>Items that should always be on your shopping list</CardDescription>
