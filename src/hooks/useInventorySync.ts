@@ -382,8 +382,6 @@ export const useInventorySync = (userId: string | undefined) => {
     return true;
   };
 
-  };
-
   // ── replaceInventory: DEPRECATED ───────────────────────────────────────────
   // Kept so nothing breaks if called elsewhere, but no longer called by the
   // main flow. Build mode uses addToInventory() incrementally instead.
