@@ -1,16 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Camera, List, Settings, LogOut, User, ShoppingBasket,
+  Camera, List, LogOut, User, ShoppingBasket,
   ChevronRight, Star, Package, ShoppingCart, Plus, X,
   Check, ArrowRight, AlertCircle, Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CameraCapture from "@/components/CameraCapture";
 import InventoryList from "@/components/InventoryList";
-import CuisinePreferences from "@/components/CuisinePreferences";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useInventorySync } from "@/hooks/useInventorySync";
@@ -22,28 +20,20 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Case-insensitive fuzzy match: does haystack contain needle or vice versa? */
 const fuzzyMatch = (a: string, b: string) =>
   a.toLowerCase().includes(b.toLowerCase()) ||
   b.toLowerCase().includes(a.toLowerCase());
 
 // ─── First-time setup banner ──────────────────────────────────────────────────
 
-const SetupBanner = ({
-  onBuildNow,
-  onDismiss,
-}: {
-  onBuildNow: () => void;
-  onDismiss: () => void;
-}) => (
+const SetupBanner = ({ onBuildNow, onDismiss }: { onBuildNow: () => void; onDismiss: () => void }) => (
   <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
     <div className="flex items-start gap-3">
       <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
       <div className="flex-1">
-        <p className="text-sm font-semibold text-foreground">Build your baseline inventory</p>
+        <p className="text-sm font-semibold">Build your baseline inventory</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Take photos of your fully stocked pantry so we know what "stocked" looks like.
-          Future weekly scans will diff against this baseline.
+          Photograph your fully stocked pantry once. Weekly scans will diff against it to find what's missing.
         </p>
       </div>
     </div>
@@ -58,23 +48,18 @@ const SetupBanner = ({
   </div>
 );
 
-// ─── Missing items confirmation modal ────────────────────────────────────────
+// ─── Missing items modal ──────────────────────────────────────────────────────
 
 const MissingSummaryModal = ({
-  missingItems,
-  onConfirm,
-  onDismiss,
+  missingItems, onConfirm, onDismiss,
 }: {
   missingItems: string[];
   onConfirm: (selected: string[]) => void;
   onDismiss: () => void;
 }) => {
   const [selected, setSelected] = useState<string[]>(missingItems);
-
   const toggle = (item: string) =>
-    setSelected(prev =>
-      prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
-    );
+    setSelected(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -84,20 +69,13 @@ const MissingSummaryModal = ({
           <h2 className="font-semibold text-base">Items missing from pantry</h2>
         </div>
         <p className="text-xs text-muted-foreground">
-          These were in your baseline but not seen in today's scan.
-          Select which ones to add to your shopping list.
+          These were in your baseline but not seen in today's scan. Select which to add to your shopping list.
         </p>
-
         <div className="space-y-1 max-h-64 overflow-y-auto">
           {missingItems.map(item => (
-            <button
-              key={item}
-              onClick={() => toggle(item)}
+            <button key={item} onClick={() => toggle(item)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors
-                ${selected.includes(item)
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted/40 text-muted-foreground"}`}
-            >
+                ${selected.includes(item) ? "bg-primary/10 text-primary" : "bg-muted/40 text-muted-foreground"}`}>
               <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors
                 ${selected.includes(item) ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
                 {selected.includes(item) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
@@ -106,15 +84,9 @@ const MissingSummaryModal = ({
             </button>
           ))}
         </div>
-
         <div className="flex gap-2 pt-1">
-          <Button
-            className="flex-1"
-            onClick={() => onConfirm(selected)}
-            disabled={selected.length === 0}
-          >
-            <ShoppingCart className="h-4 w-4 mr-1.5" />
-            Add {selected.length} to list
+          <Button className="flex-1" onClick={() => onConfirm(selected)} disabled={selected.length === 0}>
+            <ShoppingCart className="h-4 w-4 mr-1.5" /> Add {selected.length} to list
           </Button>
           <Button variant="outline" onClick={onDismiss}>Cancel</Button>
         </div>
@@ -123,49 +95,9 @@ const MissingSummaryModal = ({
   );
 };
 
-// ─── Flow steps indicator ─────────────────────────────────────────────────────
-
-const FlowSteps = ({ activeStep }: { activeStep: number }) => {
-  const steps = [
-    { label: "Staples", icon: Star },
-    { label: "Pantry", icon: Package },
-    { label: "Shop", icon: ShoppingCart },
-  ];
-  return (
-    <div className="flex items-center justify-center gap-0 mb-6">
-      {steps.map((step, i) => {
-        const Icon = step.icon;
-        const isActive = i === activeStep;
-        const isDone = i < activeStep;
-        return (
-          <div key={step.label} className="flex items-center">
-            <div className="flex flex-col items-center gap-1">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all
-                ${isActive ? "border-primary bg-primary text-primary-foreground shadow-md scale-110" : ""}
-                ${isDone ? "border-primary bg-primary/10 text-primary" : ""}
-                ${!isActive && !isDone ? "border-muted-foreground/30 text-muted-foreground" : ""}
-              `}>
-                {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-              </div>
-              <span className={`text-xs font-medium ${isActive ? "text-primary" : "text-muted-foreground"}`}>
-                {step.label}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div className={`w-12 h-0.5 mb-4 mx-1 ${i < activeStep ? "bg-primary" : "bg-muted-foreground/20"}`} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 // ─── Staples section ──────────────────────────────────────────────────────────
 
-const StaplesSection = ({
-  weeklyStaples, onAdd, onRemove, onAddAllToShoppingList,
-}: {
+const StaplesSection = ({ weeklyStaples, onAdd, onRemove, onAddAllToShoppingList }: {
   weeklyStaples: string[];
   onAdd: (item: string) => void;
   onRemove: (item: string) => void;
@@ -177,9 +109,7 @@ const StaplesSection = ({
     "pasta", "peanut butter", "pepper", "rice", "salt", "tomatoes"];
   const suggestions = COMMON.filter(c => !weeklyStaples.some(s => fuzzyMatch(s, c)));
 
-  const handleAdd = () => {
-    if (input.trim()) { onAdd(input.trim()); setInput(""); }
-  };
+  const handleAdd = () => { if (input.trim()) { onAdd(input.trim()); setInput(""); } };
 
   return (
     <div className="space-y-4">
@@ -246,13 +176,9 @@ const StaplesSection = ({
   );
 };
 
-// ─── Shopping list strip ──────────────────────────────────────────────────────
+// ─── Shopping list tab (full screen, no scroll to find it) ───────────────────
 
-const ShoppingStrip = ({
-  shoppingList,
-  onMarkAsBought,
-  onReset,
-}: {
+const ShoppingListTab = ({ shoppingList, onMarkAsBought, onReset }: {
   shoppingList: any[];
   onMarkAsBought: (id: string) => void;
   onReset: () => void;
@@ -260,78 +186,97 @@ const ShoppingStrip = ({
   const [confirmReset, setConfirmReset] = useState(false);
   const pending = shoppingList.filter(i => !i.bought);
   const bought = shoppingList.filter(i => i.bought);
-  if (shoppingList.length === 0) return null;
+
+  if (shoppingList.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+        <ShoppingCart className="h-14 w-14 text-muted-foreground/30 mb-4" />
+        <p className="font-medium text-muted-foreground">Your shopping list is empty</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Add staples from the Staples tab, or scan your pantry from the Camera tab.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+    <div className="space-y-4">
+      {/* Summary bar */}
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-sm flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-primary" /> Shopping List
-        </span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{bought.length}/{shoppingList.length} got</span>
-          {confirmReset ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => { onReset(); setConfirmReset(false); }}
-                className="text-xs px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
-              >
-                Confirm
-              </button>
-              <button
-                onClick={() => setConfirmReset(false)}
-                className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80 transition-colors"
-              >
-                Cancel
+        <div className="space-y-1 flex-1 mr-4">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+            <span>{bought.length} of {shoppingList.length} items got</span>
+            <span>{Math.round((bought.length / shoppingList.length) * 100)}%</span>
+          </div>
+          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{ width: `${(bought.length / shoppingList.length) * 100}%` }} />
+          </div>
+        </div>
+        {/* Reset */}
+        {confirmReset ? (
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => { onReset(); setConfirmReset(false); }}
+              className="text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors">
+              Confirm
+            </button>
+            <button onClick={() => setConfirmReset(false)}
+              className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 transition-colors">
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmReset(true)}
+            className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0">
+            Reset list
+          </button>
+        )}
+      </div>
+
+      {/* Pending items */}
+      {pending.length > 0 && (
+        <div className="space-y-2">
+          {pending.map(item => (
+            <div key={item.id}
+              className="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-xl">
+              <span className="text-sm font-medium">{item.name}</span>
+              <button onClick={() => onMarkAsBought(item.id)}
+                className="w-7 h-7 rounded-full border-2 border-muted-foreground/30 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-colors">
+                <Check className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => setConfirmReset(true)}
-              className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-            >
-              Reset list
-            </button>
-          )}
+          ))}
         </div>
-      </div>
-      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className="h-full bg-primary rounded-full transition-all"
-          style={{ width: `${(bought.length / shoppingList.length) * 100}%` }} />
-      </div>
-      <div className="space-y-1 max-h-48 overflow-y-auto">
-        {pending.map(item => (
-          <div key={item.id} className="flex items-center justify-between py-1">
-            <span className="text-sm">{item.name}</span>
-            <button onClick={() => onMarkAsBought(item.id)}
-              className="w-6 h-6 rounded-full border-2 border-muted-foreground/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-colors">
-              <Check className="h-3 w-3 text-muted-foreground" />
-            </button>
+      )}
+
+      {/* Bought items */}
+      {bought.length > 0 && (
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+            Got it ✓
+          </p>
+          <div className="space-y-1.5">
+            {bought.map(item => (
+              <div key={item.id}
+                className="flex items-center justify-between px-4 py-2.5 bg-muted/30 rounded-xl opacity-50">
+                <span className="text-sm line-through">{item.name}</span>
+                <button onClick={() => onMarkAsBought(item.id)}>
+                  <Check className="h-4 w-4 text-primary" />
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
-        {bought.map(item => (
-          <div key={item.id} className="flex items-center justify-between py-1 opacity-40">
-            <span className="text-sm line-through">{item.name}</span>
-            <Check className="h-4 w-4 text-primary" />
-          </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// ─── Camera tab: Build vs Weekly mode ────────────────────────────────────────
+// ─── Camera tab ───────────────────────────────────────────────────────────────
 
 type CameraMode = "build" | "weekly";
 
-const CameraTab = ({
-  inventoryItems,
-  onBuildInventory,
-  onWeeklyScan,
-  onAddToShoppingList,
-  shoppingList,
-  onMarkAsBought,
-}: {
+const CameraTab = ({ inventoryItems, onBuildInventory, onWeeklyScan, onAddToShoppingList, shoppingList, onMarkAsBought }: {
   inventoryItems: any[];
   onBuildInventory: (items: string[]) => void;
   onWeeklyScan: (items: string[]) => void;
@@ -342,67 +287,93 @@ const CameraTab = ({
   const [mode, setMode] = useState<CameraMode>(inventoryItems.length === 0 ? "build" : "weekly");
 
   return (
-    <Card className="shadow-soft">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Camera className="h-5 w-5 text-primary" />
-          {mode === "build" ? "Build Baseline Inventory" : "Weekly Pantry Scan"}
-        </CardTitle>
+    <div className="space-y-4">
+      {/* Mode toggle */}
+      <div className="flex gap-1 p-1 bg-muted rounded-lg">
+        <button onClick={() => setMode("build")}
+          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all
+            ${mode === "build" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          📦 Build Inventory
+        </button>
+        <button onClick={() => setMode("weekly")}
+          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all
+            ${mode === "weekly" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          🔍 Weekly Scan
+        </button>
+      </div>
 
-        {/* Mode toggle */}
-        <div className="flex gap-1 mt-2 p-1 bg-muted rounded-lg">
-          <button
-            onClick={() => setMode("build")}
-            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all
-              ${mode === "build" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            📦 Build Inventory
-          </button>
-          <button
-            onClick={() => setMode("weekly")}
-            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all
-              ${mode === "weekly" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            🔍 Weekly Scan
-          </button>
+      <p className="text-xs text-muted-foreground px-1">
+        {mode === "build"
+          ? "Photograph your fully stocked pantry. Take as many pictures as needed — items are added incrementally, no duplicates."
+          : "Photograph your current pantry. We'll show you what's missing before adding anything to your list."}
+      </p>
+
+      {mode === "build" && inventoryItems.length > 0 && (
+        <p className="text-xs text-primary px-1">✓ {inventoryItems.length} items in baseline — keep scanning to add more</p>
+      )}
+
+      {mode === "weekly" && inventoryItems.length === 0 && (
+        <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          Build your baseline inventory first so we have something to diff against.
         </div>
+      )}
 
-        <CardDescription className="text-xs mt-2">
-          {mode === "build"
-            ? "Photograph your fully stocked pantry. Take as many pictures as needed — items are added incrementally with no duplicates."
-            : "Photograph your current pantry. We'll compare against your baseline and show you what's missing before adding anything."}
-        </CardDescription>
+      <CameraCapture
+        onItemsDetected={mode === "build" ? onBuildInventory : onWeeklyScan}
+        onAddToShoppingList={onAddToShoppingList}
+        shoppingList={shoppingList}
+        onMarkAsBought={onMarkAsBought}
+      />
+    </div>
+  );
+};
 
-        {mode === "build" && inventoryItems.length > 0 && (
-          <p className="text-xs text-primary mt-1">
-            ✓ {inventoryItems.length} items in baseline — keep scanning to add more
-          </p>
-        )}
+// ─── Bottom nav ───────────────────────────────────────────────────────────────
 
-        {mode === "weekly" && inventoryItems.length === 0 && (
-          <div className="flex items-center gap-2 mt-1 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            Build your baseline inventory first so we have something to diff against.
-          </div>
-        )}
-      </CardHeader>
+type Tab = "staples" | "camera" | "shop";
 
-      <CardContent>
-        <CameraCapture
-          onItemsDetected={mode === "build" ? onBuildInventory : onWeeklyScan}
-          onAddToShoppingList={onAddToShoppingList}
-          shoppingList={shoppingList}
-          onMarkAsBought={onMarkAsBought}
-        />
-      </CardContent>
-    </Card>
+const BottomNav = ({ active, onSelect, shoppingCount }: {
+  active: Tab;
+  onSelect: (tab: Tab) => void;
+  shoppingCount: number;
+}) => {
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: "staples", label: "Staples", icon: <Star className="h-5 w-5" /> },
+    { id: "camera", label: "Camera", icon: <Camera className="h-5 w-5" /> },
+    { id: "shop", label: "Shop", icon: <ShoppingCart className="h-5 w-5" /> },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
+      <div className="max-w-2xl mx-auto flex">
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => onSelect(tab.id)}
+            className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 transition-colors relative
+              ${active === tab.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+            {tab.icon}
+            <span className="text-xs font-medium">{tab.label}</span>
+            {/* Badge for pending shopping items */}
+            {tab.id === "shop" && shoppingCount > 0 && (
+              <span className="absolute top-2 right-1/4 w-4 h-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+                {shoppingCount > 9 ? "9+" : shoppingCount}
+              </span>
+            )}
+            {/* Active indicator */}
+            {active === tab.id && (
+              <span className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+    </nav>
   );
 };
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("inventory");
+  const [activeTab, setActiveTab] = useState<Tab>("staples");
   const [weeklyStaples, setWeeklyStaples] = useState<string[]>([]);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
   const [missingSummary, setMissingSummary] = useState<string[] | null>(null);
@@ -430,7 +401,6 @@ const Index = () => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
-  // Show setup banner only when inventory is empty
   useEffect(() => {
     if (!dataLoading && inventoryItems.length === 0) {
       setShowSetupBanner(true);
@@ -441,48 +411,34 @@ const Index = () => {
 
   const loadWeeklyStaples = useCallback(async () => {
     if (!user?.id) return;
-    const { data, error } = await supabase
-      .from('weekly_staples').select('name').eq('user_id', user.id);
+    const { data, error } = await supabase.from('weekly_staples').select('name').eq('user_id', user.id);
     if (!error) setWeeklyStaples(data?.map(s => s.name) || []);
   }, [user?.id]);
 
   useEffect(() => { loadWeeklyStaples(); }, [loadWeeklyStaples]);
 
-  // ── Build inventory: incremental, deduped ─────────────────────────────────
+  // ── Build inventory ───────────────────────────────────────────────────────
   const handleBuildInventory = async (detectedItems: string[]) => {
     const existingNames = inventoryItems.map(i => i.name);
-    const newItems = detectedItems.filter(
-      item => !existingNames.some(e => fuzzyMatch(e, item))
-    );
+    const newItems = detectedItems.filter(item => !existingNames.some(e => fuzzyMatch(e, item)));
 
     if (newItems.length === 0) {
-      toast({
-        title: "No new items found",
-        description: "Everything scanned is already in your inventory.",
-      });
+      toast({ title: "No new items found", description: "Everything scanned is already in your inventory." });
       return;
     }
 
-    for (const item of newItems) {
-      await addToInventory(item, 1, "Other");
-    }
+    for (const item of newItems) await addToInventory(item, 1, "Other");
 
     toast({
       title: `${newItems.length} item${newItems.length > 1 ? "s" : ""} added to inventory`,
-      description: newItems.length <= 4
-        ? newItems.join(", ")
-        : `${newItems.slice(0, 3).join(", ")} and ${newItems.length - 3} more`,
+      description: newItems.length <= 4 ? newItems.join(", ") : `${newItems.slice(0, 3).join(", ")} and ${newItems.length - 3} more`,
     });
   };
 
-  // ── Weekly scan: diff, then show confirmation modal ───────────────────────
+  // ── Weekly scan → diff → modal ────────────────────────────────────────────
   const handleWeeklyScan = async (detectedItems: string[]) => {
     if (inventoryItems.length === 0) {
-      toast({
-        title: "No baseline yet",
-        description: "Switch to 'Build Inventory' mode and photograph your stocked pantry first.",
-        variant: "destructive",
-      });
+      toast({ title: "No baseline yet", description: "Switch to 'Build Inventory' mode first.", variant: "destructive" });
       return;
     }
 
@@ -495,19 +451,14 @@ const Index = () => {
       return;
     }
 
-    // Show confirmation modal — user picks what to add
     setMissingSummary(missing);
   };
 
-  // ── User confirms items to add to shopping list ───────────────────────────
   const handleConfirmMissing = async (selectedItems: string[]) => {
     const addedCount = await addMissingItemsToShoppingList(selectedItems);
     setMissingSummary(null);
-    toast({
-      title: `${addedCount ?? selectedItems.length} items added to shopping list`,
-      description: "Head to the store when you're ready.",
-    });
-    setActiveTab("inventory");
+    toast({ title: `${addedCount ?? selectedItems.length} items added to shopping list` });
+    setActiveTab("shop");
   };
 
   // ── Staples ───────────────────────────────────────────────────────────────
@@ -531,17 +482,14 @@ const Index = () => {
     const addedCount = await addMissingItemsToShoppingList(weeklyStaples);
     toast({
       title: addedCount && addedCount > 0 ? `${addedCount} staples added!` : "Already on the list",
-      description: addedCount && addedCount > 0
-        ? "Head to the store — your list is ready."
-        : "All staples are already on your shopping list.",
+      description: addedCount && addedCount > 0 ? "Head to the store — your list is ready." : "All staples are already on your shopping list.",
     });
+    if (addedCount && addedCount > 0) setActiveTab("shop");
   };
 
   const handleResetShoppingList = async () => {
     const success = await resetShoppingList();
-    if (success) {
-      toast({ title: "Shopping list cleared", description: "All items have been removed." });
-    }
+    if (success) toast({ title: "Shopping list cleared", description: "All items have been removed." });
   };
 
   const handleSignOut = async () => {
@@ -563,13 +511,11 @@ const Index = () => {
 
   if (!user) return null;
 
-  const flowStep = shoppingList.filter(i => !i.bought).length > 0 ? 2
-    : inventoryItems.length > 0 ? 1
-    : 0;
+  const pendingCount = shoppingList.filter(i => !i.bought).length;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Missing items confirmation modal */}
+      {/* Missing items modal */}
       {missingSummary && (
         <MissingSummaryModal
           missingItems={missingSummary}
@@ -579,15 +525,12 @@ const Index = () => {
       )}
 
       {/* Header */}
-      <header className="bg-gradient-fresh text-primary-foreground shadow-glow">
-        <div className="container mx-auto px-4 py-4">
+      <header className="bg-gradient-fresh text-primary-foreground shadow-glow sticky top-0 z-30">
+        <div className="container mx-auto px-4 py-3 max-w-2xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ShoppingBasket className="h-7 w-7" />
-              <div>
-                <h1 className="text-xl font-bold leading-tight">Smart Pantry</h1>
-                <p className="text-primary-foreground/70 text-xs">Staples → Scan → Shop</p>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <ShoppingBasket className="h-6 w-6" />
+              <h1 className="text-lg font-bold leading-tight">Smart Pantry</h1>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -610,31 +553,12 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main */}
-      <main className="container mx-auto px-4 py-6 max-w-2xl">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
-          {/* Tab nav */}
-          <Card className="shadow-soft">
-            <CardContent className="p-1.5">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="inventory" className="flex items-center gap-2 text-sm">
-                  <List className="h-4 w-4" /><span>Inventory</span>
-                </TabsTrigger>
-                <TabsTrigger value="camera" className="flex items-center gap-2 text-sm">
-                  <Camera className="h-4 w-4" /><span>Camera</span>
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="flex items-center gap-2 text-sm">
-                  <Settings className="h-4 w-4" /><span>Settings</span>
-                </TabsTrigger>
-              </TabsList>
-            </CardContent>
-          </Card>
+      {/* Main — padded bottom so content clears the fixed nav */}
+      <main className="container mx-auto px-4 pt-5 pb-28 max-w-2xl">
 
-          {/* ── INVENTORY TAB ── */}
-          <TabsContent value="inventory" className="space-y-4">
-            <FlowSteps activeStep={flowStep} />
-
-            {/* First-time setup banner */}
+        {/* ── STAPLES TAB ── */}
+        {activeTab === "staples" && (
+          <div className="space-y-4">
             {showSetupBanner && (
               <SetupBanner
                 onBuildNow={() => { setShowSetupBanner(false); setActiveTab("camera"); }}
@@ -642,14 +566,13 @@ const Index = () => {
               />
             )}
 
-            {/* Step 1: Staples */}
             <Card className="shadow-soft">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-bold">1</div>
+                  <Star className="h-5 w-5 text-primary" />
                   <CardTitle className="text-base">Weekly Staples</CardTitle>
                 </div>
-                <CardDescription className="text-xs ml-8">
+                <CardDescription className="text-xs">
                   Items you buy every week. Set once, use forever.
                 </CardDescription>
               </CardHeader>
@@ -663,12 +586,12 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            {/* Step 2: Pantry scan nudge */}
+            {/* Pantry scan nudge */}
             <Card className="shadow-soft border-dashed bg-muted/20">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-bold">2</div>
+                    <Package className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium">
                         {inventoryItems.length === 0 ? "Build your baseline inventory" : "Scan your pantry"}
@@ -687,22 +610,6 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Step 3: Shopping list */}
-            <div>
-              <div className="flex items-center gap-2 mb-2 ml-1">
-                <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-bold">3</div>
-                <span className="text-sm font-medium">Shopping List</span>
-              </div>
-              <ShoppingStrip shoppingList={shoppingList} onMarkAsBought={markAsBought} onReset={handleResetShoppingList} />
-              {shoppingList.length === 0 && (
-                <div className="rounded-xl border border-dashed border-muted-foreground/30 py-6 text-center">
-                  <ShoppingCart className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Your shopping list is empty.</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Add staples above or scan your pantry.</p>
-                </div>
-              )}
-            </div>
 
             {/* Full inventory collapsible */}
             {inventoryItems.length > 0 && (
@@ -730,26 +637,37 @@ const Index = () => {
                 </div>
               </details>
             )}
-          </TabsContent>
+          </div>
+        )}
 
-          {/* ── CAMERA TAB ── */}
-          <TabsContent value="camera">
-            <CameraTab
-              inventoryItems={inventoryItems}
-              onBuildInventory={handleBuildInventory}
-              onWeeklyScan={handleWeeklyScan}
-              onAddToShoppingList={(item, qty, cat) => addToShoppingList(item, qty, cat)}
-              shoppingList={shoppingList}
-              onMarkAsBought={markAsBought}
-            />
-          </TabsContent>
+        {/* ── CAMERA TAB ── */}
+        {activeTab === "camera" && (
+          <CameraTab
+            inventoryItems={inventoryItems}
+            onBuildInventory={handleBuildInventory}
+            onWeeklyScan={handleWeeklyScan}
+            onAddToShoppingList={(item, qty, cat) => addToShoppingList(item, qty, cat)}
+            shoppingList={shoppingList}
+            onMarkAsBought={markAsBought}
+          />
+        )}
 
-          {/* ── SETTINGS TAB ── */}
-          <TabsContent value="settings">
-            <CuisinePreferences />
-          </TabsContent>
-        </Tabs>
+        {/* ── SHOP TAB ── */}
+        {activeTab === "shop" && (
+          <ShoppingListTab
+            shoppingList={shoppingList}
+            onMarkAsBought={markAsBought}
+            onReset={handleResetShoppingList}
+          />
+        )}
       </main>
+
+      {/* Fixed bottom nav */}
+      <BottomNav
+        active={activeTab}
+        onSelect={setActiveTab}
+        shoppingCount={pendingCount}
+      />
     </div>
   );
 };
