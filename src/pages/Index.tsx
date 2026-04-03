@@ -297,10 +297,6 @@ const Index = () => {
             />
           </TabsContent>
 
-          {/* Recipes Tab */}
-          <TabsContent value="recipes">
-            <RecipeRecommendations inventoryItems={inventoryItems.map(i => i.name)} />
-          </TabsContent>
 
           {/* Settings Tab */}
           <TabsContent value="settings">
