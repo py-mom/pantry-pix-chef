@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight, Minus, Pencil, ArrowUpDown, Store, Filter, Share2, Copy, X } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Plus, Trash2, Check, ShoppingCart, Package, Star, ChevronDown, ChevronRight, Minus, Pencil, ArrowUpDown, Store, Filter, Share2, Copy, X, Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { InventoryItem, ShoppingItem, GroceryCategory, GROCERY_CATEGORIES } from "@/types/inventory";
 
 type SortOption = "name" | "category" | "quantity";
@@ -60,6 +62,11 @@ const InventoryList = ({
   const [inventoryFilter, setInventoryFilter] = useState<GroceryCategory | "all">("all");
   const [shoppingFilter, setShoppingFilter] = useState<GroceryCategory | "all">("all");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [photoDetectedItems, setPhotoDetectedItems] = useState<string[]>([]);
+  const [selectedDetectedItems, setSelectedDetectedItems] = useState<Set<string>>(new Set());
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const defaultStaples = [
     "milk", "bread", "eggs", "bananas", "chicken", "rice", "pasta", "onions",
@@ -191,6 +198,68 @@ const InventoryList = ({
   const handleStapleKeyPress = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleAddStaple(); };
   const addCommonStaple = (staple: string) => { if (!weeklyStaples.includes(staple)) onAddWeeklyStaple(staple); };
 
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoLoading(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("identify-staples", {
+        body: { imageBase64: base64 },
+      });
+
+      if (error) throw error;
+      const items: string[] = data?.items || [];
+      if (items.length === 0) {
+        toast({ title: "No items found", description: "Could not identify any grocery items in the photo." });
+        return;
+      }
+      const newItems = items.filter(item => !weeklyStaples.includes(item));
+      if (newItems.length === 0) {
+        toast({ title: "All items recognized", description: "All detected items are already in your weekly staples!" });
+        return;
+      }
+      setPhotoDetectedItems(newItems);
+      setSelectedDetectedItems(new Set(newItems));
+      setPhotoModalOpen(true);
+    } catch (err) {
+      console.error("Photo identification error:", err);
+      toast({ title: "Error", description: "Failed to identify items from photo.", variant: "destructive" });
+    } finally {
+      setPhotoLoading(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmPhotoItems = () => {
+    selectedDetectedItems.forEach(item => {
+      if (!weeklyStaples.includes(item)) {
+        onAddWeeklyStaple(item);
+      }
+    });
+    toast({ title: "Staples Added!", description: `Added ${selectedDetectedItems.size} items to your weekly staples.` });
+    setPhotoModalOpen(false);
+    setPhotoDetectedItems([]);
+    setSelectedDetectedItems(new Set());
+  };
+
+  const toggleDetectedItem = (item: string) => {
+    setSelectedDetectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item); else next.add(item);
+      return next;
+    });
+  };
+
   const startEditingShopping = (id: string, currentName: string) => {
     setEditingShoppingId(id);
     setEditingShoppingValue(currentName);
@@ -238,6 +307,26 @@ const InventoryList = ({
                 <Star className="h-5 w-5 text-accent" />
                 Weekly Staples
                 {weeklyStaples.length > 0 && <Badge variant="outline" className="ml-auto mr-2">{weeklyStaples.length} items</Badge>}
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7 ml-1"
+                  disabled={photoLoading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    photoInputRef.current?.click();
+                  }}
+                >
+                  {photoLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                </Button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handlePhotoCapture}
+                />
                 {staplesOpen ? <ChevronDown className="h-4 w-4 ml-auto" /> : <ChevronRight className="h-4 w-4 ml-auto" />}
               </CardTitle>
               <CardDescription>Items that should always be on your shopping list</CardDescription>
@@ -488,6 +577,37 @@ const InventoryList = ({
           </CardContent>
         </Card>
       </div>
+      {/* Photo Detection Modal */}
+      <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5 text-primary" />
+              Detected Items
+            </DialogTitle>
+            <DialogDescription>
+              Select items to add as weekly staples
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[300px] overflow-y-auto">
+            {photoDetectedItems.map((item) => (
+              <label key={item} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer">
+                <Checkbox
+                  checked={selectedDetectedItems.has(item)}
+                  onCheckedChange={() => toggleDetectedItem(item)}
+                />
+                <span className="text-sm">{item}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setPhotoModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmPhotoItems} disabled={selectedDetectedItems.size === 0}>
+              Add {selectedDetectedItems.size} Item{selectedDetectedItems.size !== 1 ? "s" : ""}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
