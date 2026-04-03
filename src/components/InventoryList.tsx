@@ -577,6 +577,37 @@ const InventoryList = ({
           </CardContent>
         </Card>
       </div>
+      {/* Photo Detection Modal */}
+      <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5 text-primary" />
+              Detected Items
+            </DialogTitle>
+            <DialogDescription>
+              Select items to add as weekly staples
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[300px] overflow-y-auto">
+            {photoDetectedItems.map((item) => (
+              <label key={item} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer">
+                <Checkbox
+                  checked={selectedDetectedItems.has(item)}
+                  onCheckedChange={() => toggleDetectedItem(item)}
+                />
+                <span className="text-sm">{item}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setPhotoModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmPhotoItems} disabled={selectedDetectedItems.size === 0}>
+              Add {selectedDetectedItems.size} Item{selectedDetectedItems.size !== 1 ? "s" : ""}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
