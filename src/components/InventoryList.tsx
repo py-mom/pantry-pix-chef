@@ -198,6 +198,68 @@ const InventoryList = ({
   const handleStapleKeyPress = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleAddStaple(); };
   const addCommonStaple = (staple: string) => { if (!weeklyStaples.includes(staple)) onAddWeeklyStaple(staple); };
 
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoLoading(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("identify-staples", {
+        body: { imageBase64: base64 },
+      });
+
+      if (error) throw error;
+      const items: string[] = data?.items || [];
+      if (items.length === 0) {
+        toast({ title: "No items found", description: "Could not identify any grocery items in the photo." });
+        return;
+      }
+      const newItems = items.filter(item => !weeklyStaples.includes(item));
+      if (newItems.length === 0) {
+        toast({ title: "All items recognized", description: "All detected items are already in your weekly staples!" });
+        return;
+      }
+      setPhotoDetectedItems(newItems);
+      setSelectedDetectedItems(new Set(newItems));
+      setPhotoModalOpen(true);
+    } catch (err) {
+      console.error("Photo identification error:", err);
+      toast({ title: "Error", description: "Failed to identify items from photo.", variant: "destructive" });
+    } finally {
+      setPhotoLoading(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmPhotoItems = () => {
+    selectedDetectedItems.forEach(item => {
+      if (!weeklyStaples.includes(item)) {
+        onAddWeeklyStaple(item);
+      }
+    });
+    toast({ title: "Staples Added!", description: `Added ${selectedDetectedItems.size} items to your weekly staples.` });
+    setPhotoModalOpen(false);
+    setPhotoDetectedItems([]);
+    setSelectedDetectedItems(new Set());
+  };
+
+  const toggleDetectedItem = (item: string) => {
+    setSelectedDetectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item); else next.add(item);
+      return next;
+    });
+  };
+
   const startEditingShopping = (id: string, currentName: string) => {
     setEditingShoppingId(id);
     setEditingShoppingValue(currentName);
