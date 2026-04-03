@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Camera, List, ChefHat, Settings, LogOut, User } from "lucide-react";
+import { Camera, List, Settings, LogOut, User, ShoppingBasket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CameraCapture from "@/components/CameraCapture";
 import InventoryList from "@/components/InventoryList";
-import RecipeRecommendations from "@/components/RecipeRecommendations";
 import CuisinePreferences from "@/components/CuisinePreferences";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,7 +15,7 @@ import { GroceryCategory } from "@/types/inventory";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("camera");
+  const [activeTab, setActiveTab] = useState("inventory");
   const [weeklyStaples, setWeeklyStaples] = useState<string[]>([]);
   const { toast } = useToast();
   const { user, loading: authLoading, signOut } = useAuth();
@@ -202,7 +201,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <ChefHat className="h-8 w-8" />
+              <ShoppingBasket className="h-8 w-8" />
               <div>
                 <h1 className="text-2xl font-bold">Smart Pantry</h1>
                 <p className="text-primary-foreground/80">AI-powered inventory & recipes</p>
@@ -239,18 +238,14 @@ const Index = () => {
           {/* Navigation */}
           <Card className="shadow-soft">
             <CardContent className="p-2">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="camera" className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  <span className="hidden sm:inline">Camera</span>
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="inventory" className="flex items-center gap-2">
                   <List className="h-4 w-4" />
                   <span className="hidden sm:inline">Inventory</span>
                 </TabsTrigger>
-                <TabsTrigger value="recipes" className="flex items-center gap-2">
-                  <ChefHat className="h-4 w-4" />
-                  <span className="hidden sm:inline">Recipes</span>
+                <TabsTrigger value="camera" className="flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  <span className="hidden sm:inline">Camera</span>
                 </TabsTrigger>
                 <TabsTrigger value="settings" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
@@ -302,10 +297,6 @@ const Index = () => {
             />
           </TabsContent>
 
-          {/* Recipes Tab */}
-          <TabsContent value="recipes">
-            <RecipeRecommendations inventoryItems={inventoryItems.map(i => i.name)} />
-          </TabsContent>
 
           {/* Settings Tab */}
           <TabsContent value="settings">
