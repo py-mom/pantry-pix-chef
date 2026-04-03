@@ -31,6 +31,11 @@ interface InventoryListProps {
   onAddAllStaplesToShoppingList: () => void | Promise<void>;
 }
 
+// ─── Fuzzy match helper (consistent with Index.tsx and useInventorySync) ──────
+const fuzzyMatch = (a: string, b: string): boolean =>
+  a.toLowerCase().includes(b.toLowerCase()) ||
+  b.toLowerCase().includes(a.toLowerCase());
+
 const InventoryList = ({
   inventoryItems,
   shoppingList,
@@ -74,7 +79,6 @@ const InventoryList = ({
     "garlic", "carrots", "apples", "oats", "peanut butter"
   ];
 
-  // Merge default staples with user's weekly staples for Quick Add options
   const commonStaples = useMemo(() => {
     const allStaples = new Set([...defaultStaples, ...weeklyStaples]);
     return Array.from(allStaples).sort();
@@ -223,7 +227,10 @@ const InventoryList = ({
         toast({ title: "No items found", description: "Could not identify any grocery items in the photo." });
         return;
       }
-      const newItems = items.filter(item => !weeklyStaples.includes(item));
+      // ── Use fuzzy match to filter out items already in staples ──────────────
+      const newItems = items.filter(
+        item => !weeklyStaples.some(staple => fuzzyMatch(staple, item))
+      );
       if (newItems.length === 0) {
         toast({ title: "All items recognized", description: "All detected items are already in your weekly staples!" });
         return;
@@ -242,7 +249,8 @@ const InventoryList = ({
 
   const handleConfirmPhotoItems = () => {
     selectedDetectedItems.forEach(item => {
-      if (!weeklyStaples.includes(item)) {
+      // ── Fuzzy check before adding to avoid duplicates ─────────────────────
+      if (!weeklyStaples.some(staple => fuzzyMatch(staple, item))) {
         onAddWeeklyStaple(item);
       }
     });
@@ -415,7 +423,10 @@ const InventoryList = ({
             {sortedInventory.length > 0 ? (
               <div className="space-y-2">
                 {sortedInventory.map((item) => {
-                  const isInShoppingList = shoppingList.some(listItem => listItem.name.toLowerCase() === item.name.toLowerCase());
+                  // ── Fuzzy match: show "Added" if a similar item is on the shopping list ──
+                  const isInShoppingList = shoppingList.some(
+                    listItem => fuzzyMatch(listItem.name, item.name)
+                  );
                   return (
                     <div key={item.id || item.name} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-3 flex-wrap flex-1">
@@ -577,6 +588,7 @@ const InventoryList = ({
           </CardContent>
         </Card>
       </div>
+
       {/* Photo Detection Modal */}
       <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
         <DialogContent className="sm:max-w-md">
