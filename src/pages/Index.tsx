@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Camera, List, ChefHat, Settings, LogOut, User } from "lucide-react";
+import { Camera, List, Settings, LogOut, User, ShoppingBasket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
