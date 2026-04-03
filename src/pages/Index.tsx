@@ -15,7 +15,7 @@ import { GroceryCategory } from "@/types/inventory";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("camera");
+  const [activeTab, setActiveTab] = useState("inventory");
   const [weeklyStaples, setWeeklyStaples] = useState<string[]>([]);
   const { toast } = useToast();
   const { user, loading: authLoading, signOut } = useAuth();
