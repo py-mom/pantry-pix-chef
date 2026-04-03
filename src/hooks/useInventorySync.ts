@@ -3,16 +3,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { InventoryItem, ShoppingItem, GroceryCategory } from "@/types/inventory";
 import { useToast } from "@/hooks/use-toast";
 
+// ─── Shared fuzzy match (mirrors logic in Index.tsx) ─────────────────────────
+// Returns true if a and b are close enough to be considered the same item.
+// e.g. "Whole Milk" matches "milk", "olive oil" matches "Olive Oil (extra virgin)"
+const fuzzyMatch = (a: string, b: string): boolean =>
+  a.toLowerCase().includes(b.toLowerCase()) ||
+  b.toLowerCase().includes(a.toLowerCase());
+
 export const useInventorySync = (userId: string | undefined) => {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Fetch inventory items from Supabase
+  // ── Fetch inventory ─────────────────────────────────────────────────────────
   const fetchInventory = useCallback(async () => {
     if (!userId) return;
-    
+
     const { data, error } = await supabase
       .from("inventory_items")
       .select("*")
@@ -34,7 +41,7 @@ export const useInventorySync = (userId: string | undefined) => {
     );
   }, [userId]);
 
-  // Fetch shopping list from Supabase
+  // ── Fetch shopping list ─────────────────────────────────────────────────────
   const fetchShoppingList = useCallback(async () => {
     if (!userId) return;
 
@@ -56,12 +63,12 @@ export const useInventorySync = (userId: string | undefined) => {
         name: item.name,
         quantity: item.quantity,
         category: item.category as GroceryCategory,
-        bought: item.bought,
+        bought: item.bought ?? false,
       }))
     );
   }, [userId]);
 
-  // Load data on mount
+  // ── Load on mount ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId) {
       setLoading(false);
@@ -77,7 +84,9 @@ export const useInventorySync = (userId: string | undefined) => {
     loadData();
   }, [userId, fetchInventory, fetchShoppingList]);
 
-  // Add to inventory
+  // ── Add to inventory (safe: fuzzy dedup, never deletes) ─────────────────────
+  // Used by both manual adds and the "Build Inventory" camera mode.
+  // If an item fuzzy-matches an existing one, quantity is incremented instead.
   const addToInventory = async (
     name: string,
     quantity: number = 1,
@@ -85,12 +94,10 @@ export const useInventorySync = (userId: string | undefined) => {
   ) => {
     if (!userId) return;
 
-    // Check if item exists
-    const existingIndex = inventoryItems.findIndex(
-      (i) => i.name.toLowerCase() === name.toLowerCase()
-    );
+    const existingIndex = inventoryItems.findIndex((i) => fuzzyMatch(i.name, name));
 
     if (existingIndex >= 0) {
+      // Item already exists — bump quantity
       const existing = inventoryItems[existingIndex];
       const newQuantity = existing.quantity + quantity;
 
@@ -105,16 +112,21 @@ export const useInventorySync = (userId: string | undefined) => {
       }
 
       const updated = [...inventoryItems];
-      updated[existingIndex] = { ...existing, quantity: newQuantity, category: category || existing.category };
+      updated[existingIndex] = {
+        ...existing,
+        quantity: newQuantity,
+        category: category || existing.category,
+      };
       setInventoryItems(updated);
     } else {
+      // New item — insert
       const { data, error } = await supabase
         .from("inventory_items")
         .insert({
           user_id: userId,
           name,
           quantity,
-          category: category || "produce",
+          category: category || "Other",
         })
         .select()
         .single();
@@ -124,14 +136,14 @@ export const useInventorySync = (userId: string | undefined) => {
         return;
       }
 
-      setInventoryItems([
+      setInventoryItems((prev) => [
         { id: data.id, name: data.name, quantity: data.quantity, category: data.category as GroceryCategory },
-        ...inventoryItems,
+        ...prev,
       ]);
     }
   };
 
-  // Update inventory item
+  // ── Update inventory item ───────────────────────────────────────────────────
   const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>) => {
     if (!userId) return;
 
@@ -145,14 +157,12 @@ export const useInventorySync = (userId: string | undefined) => {
       return;
     }
 
-    setInventoryItems(
-      inventoryItems.map((item) =>
-        item.id === id ? { ...item, ...updates } : item
-      )
+    setInventoryItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
   };
 
-  // Remove from inventory
+  // ── Remove from inventory ───────────────────────────────────────────────────
   const removeFromInventory = async (id: string) => {
     if (!userId) return;
 
@@ -166,10 +176,10 @@ export const useInventorySync = (userId: string | undefined) => {
       return;
     }
 
-    setInventoryItems(inventoryItems.filter((item) => item.id !== id));
+    setInventoryItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Add to shopping list
+  // ── Add to shopping list ────────────────────────────────────────────────────
   const addToShoppingList = async (
     name: string,
     quantity: number = 1,
@@ -177,9 +187,7 @@ export const useInventorySync = (userId: string | undefined) => {
   ) => {
     if (!userId) return;
 
-    const existingIndex = shoppingList.findIndex(
-      (i) => i.name.toLowerCase() === name.toLowerCase()
-    );
+    const existingIndex = shoppingList.findIndex((i) => fuzzyMatch(i.name, name));
 
     if (existingIndex >= 0) {
       const existing = shoppingList[existingIndex];
@@ -205,7 +213,7 @@ export const useInventorySync = (userId: string | undefined) => {
           user_id: userId,
           name,
           quantity,
-          category: category || "produce",
+          category: category || "Other",
         })
         .select()
         .single();
@@ -215,14 +223,20 @@ export const useInventorySync = (userId: string | undefined) => {
         return;
       }
 
-      setShoppingList([
-        { id: data.id, name: data.name, quantity: data.quantity, category: data.category as GroceryCategory },
-        ...shoppingList,
+      setShoppingList((prev) => [
+        {
+          id: data.id,
+          name: data.name,
+          quantity: data.quantity,
+          category: data.category as GroceryCategory,
+          bought: false,
+        },
+        ...prev,
       ]);
     }
   };
 
-  // Update shopping item
+  // ── Update shopping item ────────────────────────────────────────────────────
   const updateShoppingItem = async (id: string, updates: Partial<ShoppingItem>) => {
     if (!userId) return;
 
@@ -236,14 +250,12 @@ export const useInventorySync = (userId: string | undefined) => {
       return;
     }
 
-    setShoppingList(
-      shoppingList.map((item) =>
-        item.id === id ? { ...item, ...updates } : item
-      )
+    setShoppingList((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
   };
 
-  // Remove from shopping list
+  // ── Remove from shopping list ───────────────────────────────────────────────
   const removeFromShoppingList = async (id: string) => {
     if (!userId) return;
 
@@ -257,18 +269,18 @@ export const useInventorySync = (userId: string | undefined) => {
       return;
     }
 
-    setShoppingList(shoppingList.filter((item) => item.id !== id));
+    setShoppingList((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Toggle bought status
+  // ── Toggle bought ───────────────────────────────────────────────────────────
   const markAsBought = async (id: string) => {
     if (!userId) return;
-    
-    const item = shoppingList.find(i => i.id === id);
+
+    const item = shoppingList.find((i) => i.id === id);
     if (!item) return;
-    
+
     const newBoughtStatus = !item.bought;
-    
+
     const { error } = await supabase
       .from("shopping_list_items")
       .update({ bought: newBoughtStatus })
@@ -279,10 +291,8 @@ export const useInventorySync = (userId: string | undefined) => {
       return;
     }
 
-    setShoppingList(
-      shoppingList.map((i) =>
-        i.id === id ? { ...i, bought: newBoughtStatus } : i
-      )
+    setShoppingList((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, bought: newBoughtStatus } : i))
     );
 
     toast({
@@ -291,16 +301,17 @@ export const useInventorySync = (userId: string | undefined) => {
     });
   };
 
-  // Bulk add to shopping list (for missing items detection)
+  // ── Bulk add missing items to shopping list (fuzzy dedup) ──────────────────
+  // Called after the user confirms the missing items modal in Index.tsx.
+  // Skips any item that fuzzy-matches something already on the shopping list.
   const addMissingItemsToShoppingList = async (items: string[]) => {
-    if (!userId || items.length === 0) return;
+    if (!userId || items.length === 0) return 0;
 
-    const currentNames = shoppingList.map((i) => i.name.toLowerCase());
     const newItems = items.filter(
-      (item) => !currentNames.includes(item.toLowerCase())
+      (item) => !shoppingList.some((existing) => fuzzyMatch(existing.name, item))
     );
 
-    if (newItems.length === 0) return;
+    if (newItems.length === 0) return 0;
 
     const { data, error } = await supabase
       .from("shopping_list_items")
@@ -309,39 +320,40 @@ export const useInventorySync = (userId: string | undefined) => {
           user_id: userId,
           name,
           quantity: 1,
-          category: "produce",
+          category: "Other",
         }))
       )
       .select();
 
     if (error) {
       console.error("Error adding missing items:", error);
-      return;
+      return 0;
     }
 
-    const newShoppingItems = data.map((item) => ({
+    const newShoppingItems: ShoppingItem[] = data.map((item) => ({
       id: item.id,
       name: item.name,
       quantity: item.quantity,
       category: item.category as GroceryCategory,
+      bought: false, // ← was missing before, caused undefined bought status
     }));
 
-    setShoppingList([...newShoppingItems, ...shoppingList]);
+    setShoppingList((prev) => [...newShoppingItems, ...prev]);
 
     return newItems.length;
   };
 
-  // Replace entire inventory (for camera scan)
+  // ── replaceInventory: DEPRECATED ───────────────────────────────────────────
+  // Kept so nothing breaks if called elsewhere, but no longer called by the
+  // main flow. Build mode uses addToInventory() incrementally instead.
+  // Weekly scan diff is handled in Index.tsx using inventoryItems state directly.
   const replaceInventory = async (items: string[]) => {
     if (!userId) return;
 
-    // Get previous inventory for comparison
     const previousNames = inventoryItems.map((i) => i.name.toLowerCase());
 
-    // Delete all existing inventory
     await supabase.from("inventory_items").delete().eq("user_id", userId);
 
-    // Insert new items
     if (items.length > 0) {
       const { data, error } = await supabase
         .from("inventory_items")
@@ -350,7 +362,7 @@ export const useInventorySync = (userId: string | undefined) => {
             user_id: userId,
             name,
             quantity: 1,
-            category: "produce",
+            category: "Other",
           }))
         )
         .select();
@@ -372,14 +384,8 @@ export const useInventorySync = (userId: string | undefined) => {
       setInventoryItems([]);
     }
 
-    // Find missing items
     const missingItems = previousNames.filter(
-      (prev) =>
-        !items.some(
-          (curr) =>
-            curr.toLowerCase().includes(prev) ||
-            prev.includes(curr.toLowerCase())
-        )
+      (prev) => !items.some((curr) => fuzzyMatch(curr, prev))
     );
 
     return { missingItems, hadPreviousInventory: previousNames.length > 0 };
@@ -397,7 +403,7 @@ export const useInventorySync = (userId: string | undefined) => {
     removeFromShoppingList,
     markAsBought,
     addMissingItemsToShoppingList,
-    replaceInventory,
+    replaceInventory, // deprecated but kept for safety
     refetch: () => Promise.all([fetchInventory(), fetchShoppingList()]),
   };
 };
