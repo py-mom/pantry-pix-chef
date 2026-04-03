@@ -251,10 +251,13 @@ const StaplesSection = ({
 const ShoppingStrip = ({
   shoppingList,
   onMarkAsBought,
+  onReset,
 }: {
   shoppingList: any[];
   onMarkAsBought: (id: string) => void;
+  onReset: () => void;
 }) => {
+  const [confirmReset, setConfirmReset] = useState(false);
   const pending = shoppingList.filter(i => !i.bought);
   const bought = shoppingList.filter(i => i.bought);
   if (shoppingList.length === 0) return null;
@@ -265,7 +268,32 @@ const ShoppingStrip = ({
         <span className="font-semibold text-sm flex items-center gap-2">
           <ShoppingCart className="h-4 w-4 text-primary" /> Shopping List
         </span>
-        <span className="text-xs text-muted-foreground">{bought.length}/{shoppingList.length} got</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{bought.length}/{shoppingList.length} got</span>
+          {confirmReset ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { onReset(); setConfirmReset(false); }}
+                className="text-xs px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirmReset(false)}
+                className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmReset(true)}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              Reset list
+            </button>
+          )}
+        </div>
       </div>
       <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
         <div className="h-full bg-primary rounded-full transition-all"
@@ -395,6 +423,7 @@ const Index = () => {
     markAsBought,
     addMissingItemsToShoppingList,
     replaceInventory,
+    resetShoppingList,
   } = useInventorySync(user?.id);
 
   useEffect(() => {
@@ -506,6 +535,13 @@ const Index = () => {
         ? "Head to the store — your list is ready."
         : "All staples are already on your shopping list.",
     });
+  };
+
+  const handleResetShoppingList = async () => {
+    const success = await resetShoppingList();
+    if (success) {
+      toast({ title: "Shopping list cleared", description: "All items have been removed." });
+    }
   };
 
   const handleSignOut = async () => {
@@ -658,7 +694,7 @@ const Index = () => {
                 <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-bold">3</div>
                 <span className="text-sm font-medium">Shopping List</span>
               </div>
-              <ShoppingStrip shoppingList={shoppingList} onMarkAsBought={markAsBought} />
+              <ShoppingStrip shoppingList={shoppingList} onMarkAsBought={markAsBought} onReset={handleResetShoppingList} />
               {shoppingList.length === 0 && (
                 <div className="rounded-xl border border-dashed border-muted-foreground/30 py-6 text-center">
                   <ShoppingCart className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
