@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CameraCapture from "@/components/CameraCapture";
 import InventoryList from "@/components/InventoryList";
-import RecipeRecommendations from "@/components/RecipeRecommendations";
 import CuisinePreferences from "@/components/CuisinePreferences";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
