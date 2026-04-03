@@ -62,6 +62,11 @@ const InventoryList = ({
   const [inventoryFilter, setInventoryFilter] = useState<GroceryCategory | "all">("all");
   const [shoppingFilter, setShoppingFilter] = useState<GroceryCategory | "all">("all");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [photoDetectedItems, setPhotoDetectedItems] = useState<string[]>([]);
+  const [selectedDetectedItems, setSelectedDetectedItems] = useState<Set<string>>(new Set());
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const defaultStaples = [
     "milk", "bread", "eggs", "bananas", "chicken", "rice", "pasta", "onions",
