@@ -3,19 +3,15 @@ import { Camera, Upload, Scan, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { detectFoodItemsFromDataUrl } from "@/lib/vision/detectFood";
 import { GroceryCategory, ShoppingItem } from "@/types/inventory";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-// CameraCapture is now a single-purpose component: capture a photo, detect
-// items, call onItemsDetected. The parent (Index.tsx / CameraTab) decides
-// what to do with the results depending on whether we're in build or weekly mode.
 interface CameraCaptureProps {
   onItemsDetected: (items: string[]) => void;
   onAddToShoppingList: (item: string, quantity?: number, category?: GroceryCategory) => void | Promise<void>;
-  shoppingList?: ShoppingItem[];      // kept in props for future use, not used here
-  onMarkAsBought?: (id: string) => void | Promise<void>; // kept for API compat
+  shoppingList?: ShoppingItem[];
+  onMarkAsBought?: (id: string) => void | Promise<void>;
 }
 
 const CameraCapture = ({
@@ -33,23 +29,32 @@ const CameraCapture = ({
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
-  // ── Image analysis ──────────────────────────────────────────────────────────
   const analyzeImage = async (imageData: string): Promise<string[]> => {
     setIsAnalyzing(true);
     try {
-      console.log("Starting on-device image analysis...");
-      const items = await detectFoodItemsFromDataUrl(imageData);
-      console.log("Detected items:", items);
-      setIsAnalyzing(false);
+      console.log("Starting Claude image analysis...");
+      const imageBase64 = imageData.includes(",") ? imageData.split(",")[1] : imageData;
+
+      const { data, error } = await supabase.functions.invoke("identify-staples", {
+        body: { imageBase64 },
+      });
+
+      if (error) throw error;
+
+      const items = Array.isArray(data?.items)
+        ? data.items.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        : [];
+
+      console.log("Claude detected items:", items);
       return items;
     } catch (error) {
-      console.error("Image analysis failed:", error);
-      setIsAnalyzing(false);
+      console.error("Claude image analysis failed:", error);
       throw error;
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  // ── Handle a captured or uploaded image ────────────────────────────────────
   const handleImageCapture = async (imageData: string) => {
     setCapturedImage(imageData);
     setDetectedItems([]);
@@ -57,8 +62,6 @@ const CameraCapture = ({
     try {
       const items = await analyzeImage(imageData);
       setDetectedItems(items);
-
-      // Hand results up to parent — parent decides build vs weekly diff logic
       onItemsDetected(items);
 
       toast({
@@ -74,21 +77,19 @@ const CameraCapture = ({
     }
   };
 
-  // ── File upload ─────────────────────────────────────────────────────────────
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageData = e.target?.result as string;
       handleImageCapture(imageData);
     };
     reader.readAsDataURL(file);
-    // Reset input so the same file can be re-uploaded if needed
     event.target.value = "";
   };
 
-  // ── Camera ──────────────────────────────────────────────────────────────────
   const startCamera = async () => {
     try {
       setIsCameraOpen(true);
@@ -143,9 +144,7 @@ const CameraCapture = ({
 
   return (
     <div className="space-y-5">
-
-      {/* Capture buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Button
           onClick={startCamera}
           disabled={isCapturing || isAnalyzing}
@@ -153,7 +152,7 @@ const CameraCapture = ({
           size="lg"
           className="h-16"
         >
-          <Camera className="h-6 w-6 mr-2" />
+          <Camera className="mr-2 h-6 w-6" />
           {isCapturing ? "Capturing..." : "Take Photo"}
         </Button>
 
@@ -164,7 +163,7 @@ const CameraCapture = ({
           size="lg"
           className="h-16"
         >
-          <Upload className="h-6 w-6 mr-2" />
+          <Upload className="mr-2 h-6 w-6" />
           Upload Image
         </Button>
       </div>
@@ -178,17 +177,16 @@ const CameraCapture = ({
         className="hidden"
       />
 
-      {/* Live camera preview */}
       {isCameraOpen && (
         <Card>
-          <CardContent className="p-4 space-y-3">
-            <h3 className="font-medium text-sm">Camera Preview</h3>
+          <CardContent className="space-y-3 p-4">
+            <h3 className="text-sm font-medium">Camera Preview</h3>
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full max-w-md mx-auto rounded-lg shadow-soft bg-muted"
+              className="mx-auto w-full max-w-md rounded-lg bg-muted shadow-soft"
             />
             <div className="flex items-center justify-center gap-3">
               <Button
@@ -197,11 +195,14 @@ const CameraCapture = ({
                 size="lg"
                 disabled={isCapturing || isAnalyzing}
               >
-                <Camera className="h-5 w-5 mr-2" />
+                <Camera className="mr-2 h-5 w-5" />
                 {isCapturing ? "Capturing..." : "Capture"}
               </Button>
               <Button
-                onClick={() => { stopCamera(); setIsCameraOpen(false); }}
+                onClick={() => {
+                  stopCamera();
+                  setIsCameraOpen(false);
+                }}
                 variant="secondary"
                 size="lg"
               >
@@ -212,27 +213,25 @@ const CameraCapture = ({
         </Card>
       )}
 
-      {/* Analyzing state */}
       {isAnalyzing && (
         <Card className="border-primary shadow-glow">
           <CardContent className="flex items-center justify-center p-6">
-            <div className="text-center space-y-3">
-              <Scan className="h-8 w-8 text-primary mx-auto animate-pulse" />
+            <div className="space-y-3 text-center">
+              <Scan className="mx-auto h-8 w-8 animate-pulse text-primary" />
               <p className="text-base font-medium">Analyzing your photo...</p>
               <p className="text-sm text-muted-foreground">
-                AI is identifying items in the image
+                Claude is identifying items in the image
               </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Detected items list */}
       {detectedItems.length > 0 && !isAnalyzing && (
         <Card>
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm">
+              <h3 className="text-sm font-medium">
                 Detected items ({detectedItems.length})
               </h3>
               <Badge variant="secondary">{detectedItems.length} found</Badge>
@@ -241,7 +240,7 @@ const CameraCapture = ({
               {detectedItems.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted"
+                  className="flex items-center justify-between rounded-lg bg-muted px-3 py-2"
                 >
                   <span className="text-sm font-medium">{item}</span>
                   <Button
@@ -249,9 +248,7 @@ const CameraCapture = ({
                     variant="outline"
                     onClick={() => {
                       onAddToShoppingList(item);
-                      toast({
-                        title: `${item} added to shopping list`,
-                      });
+                      toast({ title: `${item} added to shopping list` });
                     }}
                   >
                     <Plus className="h-4 w-4" />
@@ -263,26 +260,24 @@ const CameraCapture = ({
         </Card>
       )}
 
-      {/* Captured image preview */}
       {capturedImage && !isAnalyzing && (
         <Card>
-          <CardContent className="p-4 space-y-2">
-            <h3 className="font-medium text-sm">Last captured image</h3>
+          <CardContent className="space-y-2 p-4">
+            <h3 className="text-sm font-medium">Last captured image</h3>
             <img
               src={capturedImage}
               alt="Captured pantry photo"
               loading="lazy"
-              className="w-full max-w-md mx-auto rounded-lg shadow-soft"
+              className="mx-auto w-full max-w-md rounded-lg shadow-soft"
             />
           </CardContent>
         </Card>
       )}
 
-      {/* Tips */}
       <Card className="bg-muted/50">
-        <CardContent className="p-4 space-y-1">
+        <CardContent className="space-y-1 p-4">
           <h3 className="text-sm font-medium">Tips for better results</h3>
-          <ul className="text-xs text-muted-foreground space-y-1">
+          <ul className="space-y-1 text-xs text-muted-foreground">
             <li>• Good lighting makes a big difference</li>
             <li>• Keep items clearly visible and unobstructed</li>
             <li>• Include product labels when possible</li>
