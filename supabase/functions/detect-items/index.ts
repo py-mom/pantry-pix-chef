@@ -47,7 +47,7 @@ serve(async (req) => {
           role: "user",
           content: [
             {
-              type: "input_image",
+              type: "image",
               source: { type: "base64", media_type: mediaType, data: base64 },
             },
             {
