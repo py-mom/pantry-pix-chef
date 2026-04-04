@@ -53,7 +53,7 @@ serve(async (req) => {
             {
               type: "text",
               text:
-                "Detect all visible grocery/pantry AND common household items in the photo (e.g., cleaning supplies, toiletries, paper goods, candles, batteries, light bulbs, kitchen supplies). Respond ONLY with valid JSON of the form {\"items\":[\"item1\",\"item2\",...]}. Use concise, generic item names (avoid brand names), normalize to everyday terms, and exclude people, pets, vehicles, and unrelated scenery.",
+                "Identify the grocery and household PRODUCTS visible in this image. Return the product name only — not the container, packaging, or physical description. Examples: a glass jar of Smuckers strawberry jam → 'Smuckers strawberry jam', a cardboard carton of milk → 'milk', a plastic bottle of olive oil → 'Kirkland olive oil'. Return ONLY valid JSON in this format: {\"items\":[\"item1\",\"item2\",...]}. List each distinct product once. Exclude people, pets, appliances, and furniture.",
             },
           ],
         },
