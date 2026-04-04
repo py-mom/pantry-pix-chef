@@ -427,7 +427,7 @@ const Index = () => {
       return;
     }
 
-    for (const item of newItems) await addToInventory(item, 1, "Other");
+    for (const item of newItems) await addToInventory(item, 1, "other");
 
     toast({
       title: `${newItems.length} item${newItems.length > 1 ? "s" : ""} added to inventory`,
