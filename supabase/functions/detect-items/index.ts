@@ -40,8 +40,8 @@ serve(async (req) => {
     const { mediaType, base64 } = dataUrlToParts(image);
 
     const body = {
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 300,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
       messages: [
         {
           role: "user",
