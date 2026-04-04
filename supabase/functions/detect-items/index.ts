@@ -73,6 +73,9 @@ serve(async (req) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error("Anthropic error:", errText);
+      console.error("Anthropic error status:", response.status);  // ← add this
+      console.error("Anthropic error body:", errText);            // ← add this
+      
       return new Response(
         JSON.stringify({ error: "Anthropic request failed", details: errText }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
