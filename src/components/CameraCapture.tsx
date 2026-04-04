@@ -29,14 +29,14 @@ const CameraCapture = ({
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
+  // ── Image analysis via detect-items edge function ─────────────────────────
   const analyzeImage = async (imageData: string): Promise<string[]> => {
     setIsAnalyzing(true);
     try {
-      console.log("Starting Claude image analysis...");
-      const imageBase64 = imageData.includes(",") ? imageData.split(",")[1] : imageData;
+      console.log("Starting image analysis via detect-items...");
 
-      const { data, error } = await supabase.functions.invoke("identify-staples", {
-        body: { imageBase64 },
+      const { data, error } = await supabase.functions.invoke("detect-items", {
+        body: { image: imageData }, // full data URL — function splits it server-side
       });
 
       if (error) throw error;
@@ -45,16 +45,17 @@ const CameraCapture = ({
         ? data.items.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
         : [];
 
-      console.log("Claude detected items:", items);
+      console.log("Detected items:", items);
       return items;
     } catch (error) {
-      console.error("Claude image analysis failed:", error);
+      console.error("Image analysis failed:", error);
       throw error;
     } finally {
       setIsAnalyzing(false);
     }
   };
 
+  // ── Handle captured or uploaded image ─────────────────────────────────────
   const handleImageCapture = async (imageData: string) => {
     setCapturedImage(imageData);
     setDetectedItems([]);
@@ -77,10 +78,10 @@ const CameraCapture = ({
     }
   };
 
+  // ── File upload ─────────────────────────────────────────────────────────────
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       const imageData = e.target?.result as string;
@@ -90,6 +91,7 @@ const CameraCapture = ({
     event.target.value = "";
   };
 
+  // ── Camera ──────────────────────────────────────────────────────────────────
   const startCamera = async () => {
     try {
       setIsCameraOpen(true);
@@ -144,6 +146,7 @@ const CameraCapture = ({
 
   return (
     <div className="space-y-5">
+      {/* Capture buttons */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Button
           onClick={startCamera}
@@ -177,6 +180,7 @@ const CameraCapture = ({
         className="hidden"
       />
 
+      {/* Live camera preview */}
       {isCameraOpen && (
         <Card>
           <CardContent className="space-y-3 p-4">
@@ -199,10 +203,7 @@ const CameraCapture = ({
                 {isCapturing ? "Capturing..." : "Capture"}
               </Button>
               <Button
-                onClick={() => {
-                  stopCamera();
-                  setIsCameraOpen(false);
-                }}
+                onClick={() => { stopCamera(); setIsCameraOpen(false); }}
                 variant="secondary"
                 size="lg"
               >
@@ -213,6 +214,7 @@ const CameraCapture = ({
         </Card>
       )}
 
+      {/* Analyzing state */}
       {isAnalyzing && (
         <Card className="border-primary shadow-glow">
           <CardContent className="flex items-center justify-center p-6">
@@ -220,13 +222,14 @@ const CameraCapture = ({
               <Scan className="mx-auto h-8 w-8 animate-pulse text-primary" />
               <p className="text-base font-medium">Analyzing your photo...</p>
               <p className="text-sm text-muted-foreground">
-                Claude is identifying items in the image
+                AI is identifying items in the image
               </p>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* Detected items */}
       {detectedItems.length > 0 && !isAnalyzing && (
         <Card>
           <CardContent className="space-y-3 p-4">
@@ -260,6 +263,7 @@ const CameraCapture = ({
         </Card>
       )}
 
+      {/* Captured image preview */}
       {capturedImage && !isAnalyzing && (
         <Card>
           <CardContent className="space-y-2 p-4">
@@ -274,6 +278,7 @@ const CameraCapture = ({
         </Card>
       )}
 
+      {/* Tips */}
       <Card className="bg-muted/50">
         <CardContent className="space-y-1 p-4">
           <h3 className="text-sm font-medium">Tips for better results</h3>
