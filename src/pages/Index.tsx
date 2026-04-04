@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Camera, List, LogOut, User, ShoppingBasket,
   ChevronRight, Star, Package, ShoppingCart, Plus, X,
@@ -176,7 +176,168 @@ const StaplesSection = ({ weeklyStaples, onAdd, onRemove, onAddAllToShoppingList
   );
 };
 
-// ─── Shopping list tab (full screen, no scroll to find it) ───────────────────
+// ─── Cart scan confirmation modal ────────────────────────────────────────────
+
+const CartScanModal = ({
+  matched,
+  missing,
+  onConfirm,
+  onDismiss,
+}: {
+  matched: any[];
+  missing: any[];
+  onConfirm: (ids: string[]) => void;
+  onDismiss: () => void;
+}) => {
+  const [selected, setSelected] = useState<string[]>(matched.map(i => i.id));
+
+  const toggle = (id: string) =>
+    setSelected(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-background rounded-2xl shadow-xl w-full max-w-sm space-y-4 p-5">
+        <div className="flex items-center gap-2">
+          <ShoppingCart className="h-5 w-5 text-primary" />
+          <h2 className="font-semibold text-base">Cart scan results</h2>
+        </div>
+
+        {/* Matched */}
+        {matched.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+              Found in cart — check off?
+            </p>
+            {matched.map(item => (
+              <button key={item.id} onClick={() => toggle(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors
+                  ${selected.includes(item.id) ? "bg-primary/10 text-primary" : "bg-muted/40 text-muted-foreground"}`}>
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors
+                  ${selected.includes(item.id) ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                  {selected.includes(item.id) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                </div>
+                {item.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Still missing */}
+        {missing.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-amber-600 font-semibold">
+              Still missing from cart
+            </p>
+            {missing.map(item => (
+              <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50 text-sm text-amber-700">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {item.name}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button className="flex-1" onClick={() => onConfirm(selected)} disabled={selected.length === 0}>
+            <Check className="h-4 w-4 mr-1.5" /> Check off {selected.length} items
+          </Button>
+          <Button variant="outline" onClick={onDismiss}>Close</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Cart scan button + image upload ─────────────────────────────────────────
+
+const CartScanner = ({
+  shoppingList,
+  onMarkAsBought,
+}: {
+  shoppingList: any[];
+  onMarkAsBought: (id: string) => void;
+}) => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [cartScanResult, setCartScanResult] = useState<{ matched: any[]; missing: any[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const analyzeCart = async (imageData: string) => {
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("detect-items", {
+        body: { image: imageData },
+      });
+      if (error) throw error;
+
+      const detectedItems: string[] = Array.isArray(data?.items) ? data.items : [];
+      const pending = shoppingList.filter(i => !i.bought);
+
+      const matched = pending.filter(item =>
+        detectedItems.some(detected => fuzzyMatch(item.name, detected))
+      );
+      const missing = pending.filter(item =>
+        !detectedItems.some(detected => fuzzyMatch(item.name, detected))
+      );
+
+      if (matched.length === 0 && missing.length === 0) {
+        toast({ title: "Nothing matched", description: "Could not match any cart items to your list." });
+        return;
+      }
+
+      setCartScanResult({ matched, missing });
+    } catch (err) {
+      toast({ title: "Scan failed", description: "Could not analyze the image.", variant: "destructive" });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => analyzeCart(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleConfirm = async (ids: string[]) => {
+    for (const id of ids) await onMarkAsBought(id);
+    toast({ title: `${ids.length} item${ids.length > 1 ? "s" : ""} checked off!` });
+    setCartScanResult(null);
+  };
+
+  return (
+    <>
+      {cartScanResult && (
+        <CartScanModal
+          matched={cartScanResult.matched}
+          missing={cartScanResult.missing}
+          onConfirm={handleConfirm}
+          onDismiss={() => setCartScanResult(null)}
+        />
+      )}
+
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+        onChange={handleFileUpload} className="hidden" />
+
+      <Button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isAnalyzing}
+        variant="outline"
+        size="sm"
+        className="w-full"
+      >
+        {isAnalyzing
+          ? <><span className="animate-spin mr-2">⟳</span> Scanning cart...</>
+          : <><Camera className="h-4 w-4 mr-2" /> Scan Cart</>}
+      </Button>
+    </>
+  );
+};
+
+// ─── Shopping list tab ────────────────────────────────────────────────────────
 
 const ShoppingListTab = ({ shoppingList, onMarkAsBought, onReset }: {
   shoppingList: any[];
@@ -201,6 +362,9 @@ const ShoppingListTab = ({ shoppingList, onMarkAsBought, onReset }: {
 
   return (
     <div className="space-y-4">
+      {/* Scan cart button */}
+      <CartScanner shoppingList={shoppingList} onMarkAsBought={onMarkAsBought} />
+
       {/* Summary bar */}
       <div className="flex items-center justify-between">
         <div className="space-y-1 flex-1 mr-4">
@@ -213,7 +377,6 @@ const ShoppingListTab = ({ shoppingList, onMarkAsBought, onReset }: {
               style={{ width: `${(bought.length / shoppingList.length) * 100}%` }} />
           </div>
         </div>
-        {/* Reset */}
         {confirmReset ? (
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => { onReset(); setConfirmReset(false); }}
@@ -427,7 +590,7 @@ const Index = () => {
       return;
     }
 
-    for (const item of newItems) await addToInventory(item, 1, "other");
+    for (const item of newItems) await addToInventory(item, 1, "Other");
 
     toast({
       title: `${newItems.length} item${newItems.length > 1 ? "s" : ""} added to inventory`,
