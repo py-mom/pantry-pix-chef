@@ -1,7 +1,6 @@
 // detectFood.ts
-// Calls a Supabase Edge Function (detect-food-items) which proxies to Claude Haiku.
-// Direct browser → Anthropic API calls are blocked by CORS, so we route through
-// Supabase the same way identify-staples already works.
+// Calls the existing Supabase edge function (detect-items) which proxies to Claude.
+// The function expects { image: dataUrl } and returns { items: string[] }.
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,19 +10,9 @@ export async function detectFoodItemsFromDataUrl(dataUrl: string): Promise<strin
     return [];
   }
 
-  // Split data URL into media type + raw base64
-  const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!matches) {
-    console.error("Could not parse data URL");
-    return [];
-  }
-
-  const mediaType = matches[1];
-  const base64Data = matches[2];
-
   try {
-    const { data, error } = await supabase.functions.invoke("detect-food-items", {
-      body: { imageBase64: base64Data, mediaType },
+    const { data, error } = await supabase.functions.invoke("detect-items", {
+      body: { image: dataUrl }, // full data URL — the function splits it server-side
     });
 
     if (error) {
