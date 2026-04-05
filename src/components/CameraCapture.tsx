@@ -79,15 +79,20 @@ const CameraCapture = ({
   };
 
   // ── File upload ─────────────────────────────────────────────────────────────
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageData = e.target?.result as string;
-      handleImageCapture(imageData);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { fileToSafeDataUrl } = await import("@/lib/imageUtils");
+      const dataUrl = await fileToSafeDataUrl(file);
+      handleImageCapture(dataUrl);
+    } catch {
+      toast({
+        title: "Could not read image",
+        description: "Please try a JPEG or PNG instead.",
+        variant: "destructive",
+      });
+    }
     event.target.value = "";
   };
 
