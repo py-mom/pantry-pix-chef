@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Camera, List, LogOut, User, ShoppingBasket,
   ChevronRight, Star, Package, ShoppingCart, Plus, X,
-  Check, ArrowRight, AlertCircle, Sparkles
+  Check, ArrowRight, AlertCircle, Sparkles, Upload
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -259,7 +259,8 @@ const CartScanner = ({
 }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [cartScanResult, setCartScanResult] = useState<{ matched: any[]; missing: any[] } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const analyzeCart = async (imageData: string) => {
@@ -293,12 +294,16 @@ const CartScanner = ({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => analyzeCart(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    try {
+      const { fileToSafeDataUrl } = await import("@/lib/imageUtils");
+      const dataUrl = await fileToSafeDataUrl(file);
+      analyzeCart(dataUrl);
+    } catch {
+      toast({ title: "Could not read image", description: "Please try a JPEG or PNG instead.", variant: "destructive" });
+    }
     e.target.value = "";
   };
 
@@ -319,20 +324,34 @@ const CartScanner = ({
         />
       )}
 
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
-        onChange={handleFileUpload} className="hidden" />
+      {/* Hidden inputs — one forces camera, one opens file picker */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+        onChange={handleFile} className="hidden" />
+      <input ref={uploadInputRef} type="file" accept="image/*"
+        onChange={handleFile} className="hidden" />
 
-      <Button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={isAnalyzing}
-        variant="outline"
-        size="sm"
-        className="w-full"
-      >
-        {isAnalyzing
-          ? <><span className="animate-spin mr-2">⟳</span> Scanning cart...</>
-          : <><Camera className="h-4 w-4 mr-2" /> Scan Cart</>}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={isAnalyzing}
+          variant="outline"
+          size="sm"
+          className="w-full"
+        >
+          {isAnalyzing
+            ? <><span className="animate-spin mr-2">⟳</span> Scanning...</>
+            : <><Camera className="h-4 w-4 mr-2" /> Take Photo</>}
+        </Button>
+        <Button
+          onClick={() => uploadInputRef.current?.click()}
+          disabled={isAnalyzing}
+          variant="outline"
+          size="sm"
+          className="w-full"
+        >
+          <Upload className="h-4 w-4 mr-2" /> Upload Image
+        </Button>
+      </div>
     </>
   );
 };
