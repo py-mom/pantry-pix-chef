@@ -196,52 +196,63 @@ const CartScanModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-background rounded-2xl shadow-xl w-full max-w-sm space-y-4 p-5">
-        <div className="flex items-center gap-2">
-          <ShoppingCart className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-base">Cart scan results</h2>
+      <div className="bg-background rounded-2xl shadow-xl w-full max-w-sm p-5 flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 shrink-0">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold text-base">Cart scan results</h2>
+          </div>
+          <button onClick={onDismiss}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        {/* Matched */}
-        {matched.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-              Found in cart — check off?
-            </p>
-            {matched.map(item => (
-              <button key={item.id} onClick={() => toggle(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors
-                  ${selected.includes(item.id) ? "bg-primary/10 text-primary" : "bg-muted/40 text-muted-foreground"}`}>
-                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors
-                  ${selected.includes(item.id) ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
-                  {selected.includes(item.id) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 space-y-4 pr-1">
+          {/* Matched */}
+          {matched.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+                Found in cart — check off?
+              </p>
+              {matched.map(item => (
+                <button key={item.id} onClick={() => toggle(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors
+                    ${selected.includes(item.id) ? "bg-primary/10 text-primary" : "bg-muted/40 text-muted-foreground"}`}>
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors
+                    ${selected.includes(item.id) ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                    {selected.includes(item.id) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                  </div>
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Still missing */}
+          {missing.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-wide text-amber-600 font-semibold">
+                Still missing ({missing.length})
+              </p>
+              {missing.map(item => (
+                <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50 text-sm text-amber-700">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {item.name}
                 </div>
-                {item.name}
-              </button>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* Still missing */}
-        {missing.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wide text-amber-600 font-semibold">
-              Still missing from cart
-            </p>
-            {missing.map(item => (
-              <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50 text-sm text-amber-700">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                {item.name}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2 pt-1">
+        {/* Actions — always visible at bottom */}
+        <div className="flex gap-2 pt-4 shrink-0 border-t border-border mt-4">
           <Button className="flex-1" onClick={() => onConfirm(selected)} disabled={selected.length === 0}>
             <Check className="h-4 w-4 mr-1.5" /> Check off {selected.length} items
           </Button>
-          <Button variant="outline" onClick={onDismiss}>Close</Button>
+          <Button variant="outline" onClick={onDismiss}>Cancel</Button>
         </div>
       </div>
     </div>
