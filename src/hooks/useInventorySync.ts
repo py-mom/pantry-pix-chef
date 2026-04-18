@@ -3,12 +3,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { InventoryItem, ShoppingItem, GroceryCategory } from "@/types/inventory";
 import { useToast } from "@/hooks/use-toast";
 
-// ─── Shared fuzzy match (mirrors logic in Index.tsx) ─────────────────────────
-// Returns true if a and b are close enough to be considered the same item.
-// e.g. "Whole Milk" matches "milk", "olive oil" matches "Olive Oil (extra virgin)"
-const fuzzyMatch = (a: string, b: string): boolean =>
-  a.toLowerCase().includes(b.toLowerCase()) ||
-  b.toLowerCase().includes(a.toLowerCase());
+// ─── Shared fuzzy match ───────────────────────────────────────────────────────
+const STOP_WORDS = new Set(["a", "an", "the", "of", "in", "with", "and", "or", "fresh", "organic", "raw"]);
+
+const significantWords = (s: string) =>
+  s.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
+
+const fuzzyMatch = (a: string, b: string): boolean => {
+  const aL = a.toLowerCase();
+  const bL = b.toLowerCase();
+  if (aL.includes(bL) || bL.includes(aL)) return true;
+  const aWords = significantWords(a);
+  const bWords = significantWords(b);
+  return aWords.some(w => bL.includes(w)) || bWords.some(w => aL.includes(w));
+};
 
 export const useInventorySync = (userId: string | undefined) => {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
