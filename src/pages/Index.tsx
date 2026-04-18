@@ -20,9 +20,27 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const fuzzyMatch = (a: string, b: string) =>
-  a.toLowerCase().includes(b.toLowerCase()) ||
-  b.toLowerCase().includes(a.toLowerCase());
+// Words too short or generic to be meaningful for matching
+const STOP_WORDS = new Set(["a", "an", "the", "of", "in", "with", "and", "or", "fresh", "organic", "raw"]);
+
+const significantWords = (s: string) =>
+  s.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
+
+const fuzzyMatch = (a: string, b: string) => {
+  const aL = a.toLowerCase();
+  const bL = b.toLowerCase();
+
+  // Direct substring match (original behaviour)
+  if (aL.includes(bL) || bL.includes(aL)) return true;
+
+  // Word-level match: any significant word from one appears in the other
+  // e.g. "apples" matches "Cosmic Crisp apples"
+  // e.g. "Mediterranean salad" matches "Mediterranean Crunch salad"
+  const aWords = significantWords(a);
+  const bWords = significantWords(b);
+
+  return aWords.some(w => bL.includes(w)) || bWords.some(w => aL.includes(w));
+};
 
 // ─── First-time setup banner ──────────────────────────────────────────────────
 
